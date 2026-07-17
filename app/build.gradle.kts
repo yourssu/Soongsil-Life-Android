@@ -48,6 +48,15 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.57.1")
     ksp("com.google.dagger:hilt-android-compiler:2.57.1")
 
+    implementation("androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0")
+
+    // Jetpack Compose integration
+    implementation("androidx.navigation:navigation-compose:2.9.8")
+
+    // data module
+    implementation(project(":data"))
+
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
@@ -64,3 +73,4 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
