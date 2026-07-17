@@ -1,5 +1,6 @@
-package com.yourssu.soongsil.ui.login
+package com.yourssu.soongsil.screen.login
 
+import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -54,18 +54,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val LoginBackground = Color(0xFF121212)
-private val LoginSurface = Color(0xFF2C2C2E)
-private val LoginBorder = Color(0xFF3A3A3C)
-private val LoginText = Color(0xFFF5F5F5)
-private val LoginHint = Color(0xFF8A8A8E)
-private val LoginSubText = Color(0xFFA1A1AA)
-private val LoginBlue = Color(0xFF0062FF)
+import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onLoginClick: (studentId: String, password: String) -> Unit = { _, _ -> },
     onForgotPasswordClick: () -> Unit = {}
 ) {
@@ -75,6 +70,8 @@ fun LoginScreen(
     LoginScreenContent(
         studentId = studentId,
         password = password,
+        isLoading = isLoading,
+        errorMessage = errorMessage,
         onStudentIdChange = { studentId = it },
         onPasswordChange = { password = it },
         onLoginClick = { onLoginClick(studentId, password) },
@@ -87,6 +84,8 @@ fun LoginScreen(
 private fun LoginScreenContent(
     studentId: String,
     password: String,
+    isLoading: Boolean,
+    errorMessage: String?,
     onStudentIdChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
@@ -98,8 +97,7 @@ private fun LoginScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LoginBackground)
-            .safeDrawingPadding()
+            .background(MaterialTheme.colorScheme.background)
             .imePadding()
     ) {
         Column(
@@ -111,14 +109,14 @@ private fun LoginScreenContent(
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFD9D9D9))
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
 
             Spacer(modifier = Modifier.height(34.dp))
 
             Text(
                 text = "유세인트에\n로그인해주세요",
-                color = LoginText,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
                 lineHeight = 34.sp,
@@ -129,7 +127,7 @@ private fun LoginScreenContent(
 
             Text(
                 text = "학사 정보를 한눈에 확인할 수 있어요",
-                color = LoginSubText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 fontStyle = FontStyle.Italic
             )
@@ -168,7 +166,7 @@ private fun LoginScreenContent(
 
             Text(
                 text = "비밀번호를 잊으셨나요?",
-                color = LoginBlue,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
@@ -177,6 +175,15 @@ private fun LoginScreenContent(
                     .semantics { role = Role.Button }
                     .clickable(onClick = onForgotPasswordClick)
             )
+
+            errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 12.dp, start = 4.dp, end = 4.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -191,16 +198,21 @@ private fun LoginScreenContent(
                     focusManager.clearFocus()
                     onLoginClick()
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LoginBlue),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
+                    disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
+                ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
-                    text = "로그인",
-                    color = Color.White,
+                    text = if (isLoading) "로그인 중..." else "로그인",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.2).sp
@@ -230,17 +242,17 @@ private fun LoginTextField(
             .fillMaxWidth()
             .height(56.dp)
             .clip(shape)
-            .background(LoginSurface)
-            .border(width = 1.dp, color = LoginBorder, shape = shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = shape)
             .padding(horizontal = 20.dp),
         textStyle = TextStyle(
-            color = LoginText,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = (-0.2).sp,
             textAlign = TextAlign.End
         ),
-        cursorBrush = SolidColor(LoginBlue),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         singleLine = true,
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
@@ -252,7 +264,7 @@ private fun LoginTextField(
             ) {
                 Text(
                     text = label,
-                    color = LoginHint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -311,6 +323,7 @@ private fun PasswordVisibilityButton(
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
         modifier = Modifier
@@ -339,18 +352,18 @@ private fun PasswordVisibilityButton(
 
             drawPath(
                 path = eyePath,
-                color = LoginHint,
+                color = iconColor,
                 style = Stroke(width = 1.4.dp.toPx())
             )
             drawCircle(
-                color = LoginHint,
+                color = iconColor,
                 radius = 2.dp.toPx(),
                 center = center
             )
 
             if (!isPasswordVisible) {
                 drawLine(
-                    color = LoginHint,
+                    color = iconColor,
                     start = Offset(2.dp.toPx(), size.height - 2.dp.toPx()),
                     end = Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
                     strokeWidth = 1.4.dp.toPx()
@@ -360,15 +373,26 @@ private fun PasswordVisibilityButton(
     }
 }
 
-@Preview(showBackground = true, widthDp = 402, heightDp = 874)
+@Preview(name = "Light", showBackground = true, widthDp = 402, heightDp = 874)
+@Preview(
+    name = "Dark",
+    showBackground = true,
+    widthDp = 402,
+    heightDp = 874,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun LoginScreenPreview() {
-    LoginScreenContent(
-        studentId = "20231234",
-        password = "password",
-        onStudentIdChange = {},
-        onPasswordChange = {},
-        onLoginClick = {},
-        onForgotPasswordClick = {}
-    )
+    SoongsilLifeAndroidTheme {
+        LoginScreenContent(
+            studentId = "20231234",
+            password = "password",
+            isLoading = false,
+            errorMessage = null,
+            onStudentIdChange = {},
+            onPasswordChange = {},
+            onLoginClick = {},
+            onForgotPasswordClick = {}
+        )
+    }
 }

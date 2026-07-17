@@ -18,6 +18,12 @@ object Grade // 성적 탭
 object Dashboard // 메인 탭
 
 @Serializable
+object Timetable // 시간표 탭
+
+@Serializable
+object PushNotifications // 알림 탭
+
+@Serializable
 object Graduate // 졸업사정표
 
 @Serializable
