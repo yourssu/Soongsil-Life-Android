@@ -53,6 +53,8 @@ import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
 import com.yourssu.soongsil.screen.mypage.MyPageViewModel
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.components.MainBottomBar
@@ -75,7 +77,9 @@ class MainActivity : ComponentActivity() {
                     .value
                     ?.destination
                     ?.route
-                val showBottomBar = currentRoute != null && currentRoute != Login::class.qualifiedName
+                val showBottomBar = currentRoute != null &&
+                    currentRoute != Login::class.qualifiedName &&
+                    currentRoute != Scholarship::class.qualifiedName
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
@@ -212,6 +216,16 @@ class MainActivity : ComponentActivity() {
                         }
                         composable<Scholarship> {
                             // TODO: Implement MyPageScreen
+                            val viewModel: ScholarshipViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            ScholarshipScreen(
+                                tuitionHistories = uiState.tuitionHistories,
+                                isTuitionLoading = uiState.isTuitionLoading,
+                                tuitionErrorMessage = uiState.tuitionErrorMessage,
+                                onTuitionRetryClick = viewModel::loadTuitionHistories,
+                                onBackClick = navController::popBackStack
+                            )
                         }
                         composable<Chapel> {
                             ChapelScreen()
