@@ -46,12 +46,12 @@ private enum class ScholarshipTab(val label: String) {
 
 @Composable
 fun ScholarshipScreen(
+    modifier: Modifier = Modifier,
     tuitionHistories: List<TuitionHistory> = emptyList(),
     isTuitionLoading: Boolean = false,
     tuitionErrorMessage: String? = null,
     onTuitionRetryClick: () -> Unit = {},
-    onBackClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onBackClick: () -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ScholarshipTab.TUITION) }
 
