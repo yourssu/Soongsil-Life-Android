@@ -31,18 +31,147 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yourssu.data.dashboard.DashboardChapelData
 
 @Composable
 fun ChapelScreen(
     modifier: Modifier = Modifier,
     viewModel: ChapelViewModel = hiltViewModel(),
 ) {
-    ChapelSeatScreen(
-        modifier = modifier
-    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    ChapelScreenContent(
+        uiState = uiState,
+        onRetryClick = viewModel::retry,
+        modifier = modifier,
+    )
 }
 
+@Composable
+private fun ChapelScreenContent(
+    uiState: ChapelUiState,
+    onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        uiState.isLoading -> {
+            ChapelLoadingScreen(modifier = modifier)
+        }
+
+        uiState.error != null -> {
+            ChapelErrorScreen(
+                message = uiState.error,
+                onRetryClick = onRetryClick,
+                modifier = modifier,
+            )
+        }
+
+        uiState.chapelData != null -> {
+            ChapelSuccessScreen(
+                chapelData = uiState.chapelData,
+                modifier = modifier,
+            )
+        }
+
+        else -> {
+            ChapelErrorScreen(
+                message = "채플 정보를 불러올 수 없습니다.",
+                onRetryClick = onRetryClick,
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChapelSuccessScreen(
+    chapelData: DashboardChapelData,
+    modifier: Modifier = Modifier,
+) {
+    val seatZoneCode = chapelData.seat
+        .substringBefore("-")
+        .trim()
+        .uppercase()
+
+    val seatZone = seatZoneCode
+        .takeIf { it.isNotBlank() }
+        ?.let { "${it}구역" }
+        .orEmpty()
+
+    val seatFloor = getSeatFloor(chapelData.seat)
+
+    ChapelSeatScreen(
+        seatNumber = chapelData.seat.ifBlank { "좌석 정보 없음" },
+        seatFloor = seatFloor,
+        seatZone = seatZone,
+        attended = chapelData.attended,
+        total = chapelData.required,
+        late = chapelData.late,
+        absent = chapelData.absent,
+        remaining = chapelData.remaining,
+        progress = chapelData.progress,
+        modifier = modifier,
+    )
+}
+
+private fun getSeatFloor(seat: String): String {
+    val zone = seat
+        .substringBefore("-")
+        .trim()
+        .uppercase()
+
+    return when (zone) {
+        "A", "B", "C", "D", "E" -> "1층"
+        "F", "G", "H", "I", "J" -> "2층"
+        else -> ""
+    }
+}
+
+@Composable
+private fun ChapelLoadingScreen(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ChapelErrorScreen(
+    message: String,
+    onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = message,
+            fontSize = 14.sp,
+            color = Color(0xFF6B7280),
+        )
+
+        Button(
+            onClick = onRetryClick,
+            modifier = Modifier.padding(top = 16.dp),
+        ) {
+            Text(text = "다시 시도")
+        }
+    }
+}
 @Composable
 fun ChapelHeader(
     onBackClick: () -> Unit,
@@ -120,7 +249,9 @@ fun SeatHeroCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "$floor · $zone",
+                text = listOf(floor, zone) //수정
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · "),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xCCFFFFFF)
@@ -143,8 +274,10 @@ fun AttendanceGauge(
     attended: Int,
     total: Int,
     late: Int,
+    absent: Int,
+    remaining: Int,
     progress: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
@@ -172,7 +305,7 @@ fun AttendanceGauge(
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
-                    text = "${total - attended}",
+                    text = "$remaining",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF0062FF),
@@ -209,7 +342,7 @@ fun AttendanceGauge(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${attended}회 출석 · ${late}회 지각",
+                text = "${attended}회 출석 · ${late}회 지각 · ${absent}회 결석", //수정
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF9CA3AF)
@@ -287,12 +420,14 @@ fun ChapelSeatScreen(
     attended: Int = 5,
     total: Int = 8,
     late: Int = 1,
+    absent: Int = 1,
+    remaining: Int = 1,
     progress: Float = 0.6f,
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
     onViewSeatClick: () -> Unit = {},
     onAttendClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
 
@@ -323,7 +458,9 @@ fun ChapelSeatScreen(
                 attended = attended,
                 total = total,
                 late = late,
-                progress = progress
+                absent = absent,
+                remaining = remaining,
+                progress = progress,
             )
         }
 

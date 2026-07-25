@@ -86,6 +86,16 @@ class DashboardRepository @Inject constructor(
         dashboardData
     }
 
+    suspend fun getChapelData(): Result<DashboardChapelData> = runCatching {
+        LmsApi.getChapelTable().toDashboardChapel()
+    }
+        .onSuccess {
+            Log.d(TAG, "채플 정보 로드 성공")
+        }
+        .onFailure {
+            Log.e(TAG, "채플 정보 로드 실패", it)
+        }
+
     private suspend fun getLoginInfo(): Info = suspendCancellableCoroutine { continuation ->
         LmsApi.getLoginInfo { result ->
             if (!continuation.isActive) return@getLoginInfo
