@@ -13,9 +13,3 @@ data class TuitionHistory(
     val reduction: String,
     val paymentAmount: String
 )
-
-data class TuitionScholarshipUiState(
-    val isTuitionLoading: Boolean = false,
-    val tuitionHistories: List<TuitionHistory> = emptyList(),
-    val tuitionErrorMessage: String? = null
-)

@@ -215,7 +215,6 @@ class MainActivity : ComponentActivity() {
                             PushNotificationsScreen()
                         }
                         composable<Scholarship> {
-                            // TODO: Implement MyPageScreen
                             val viewModel: ScholarshipViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
 
@@ -224,6 +223,10 @@ class MainActivity : ComponentActivity() {
                                 isTuitionLoading = uiState.isTuitionLoading,
                                 tuitionErrorMessage = uiState.tuitionErrorMessage,
                                 onTuitionRetryClick = viewModel::loadTuitionHistories,
+                                scholarshipHistories = uiState.scholarshipHistories,
+                                isScholarshipLoading = uiState.isScholarshipLoading,
+                                scholarshipErrorMessage = uiState.scholarshipErrorMessage,
+                                onScholarshipRetryClick = viewModel::loadScholarshipHistories,
                                 onBackClick = navController::popBackStack
                             )
                         }

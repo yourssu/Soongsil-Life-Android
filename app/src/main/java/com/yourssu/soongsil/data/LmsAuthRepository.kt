@@ -83,7 +83,14 @@ class LmsAuthRepository @Inject constructor(
 
     suspend fun logout(): Result<Unit> = runCatching {
         clearCredentials()
-        LmsApi.isLoggined = false
+
+        suspendCancellableCoroutine { continuation ->
+            LmsApi.logout {
+                if (continuation.isActive) {
+                    continuation.resume(Unit)
+                }
+            }
+        }
     }
 
     private suspend fun clearCredentials() {

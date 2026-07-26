@@ -32,14 +32,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.data.scholarship.ScholarshipHistory
 import com.yourssu.data.scholarship.TuitionHistory
 import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
-private enum class ScholarshipTab(val label: String) {
+enum class TuitionScholarshipTab(val label: String) {
     TUITION("등록금 내역"),
     SCHOLARSHIP("장학금 내역")
 }
@@ -47,13 +49,18 @@ private enum class ScholarshipTab(val label: String) {
 @Composable
 fun ScholarshipScreen(
     modifier: Modifier = Modifier,
+    initialTab: TuitionScholarshipTab = TuitionScholarshipTab.TUITION,
     tuitionHistories: List<TuitionHistory> = emptyList(),
     isTuitionLoading: Boolean = false,
     tuitionErrorMessage: String? = null,
     onTuitionRetryClick: () -> Unit = {},
+    scholarshipHistories: List<ScholarshipHistory> = emptyList(),
+    isScholarshipLoading: Boolean = false,
+    scholarshipErrorMessage: String? = null,
+    onScholarshipRetryClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(ScholarshipTab.TUITION) }
+    var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
 
     Column(
         modifier = modifier
@@ -68,16 +75,36 @@ fun ScholarshipScreen(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp)
         )
 
-        if (selectedTab == ScholarshipTab.TUITION) {
-            when {
-                isTuitionLoading -> ScholarshipLoading(modifier = Modifier.weight(1f))
-                tuitionErrorMessage != null -> ScholarshipError(
+        when (selectedTab) {
+            TuitionScholarshipTab.TUITION -> when {
+                isTuitionLoading -> HistoryLoading(modifier = Modifier.weight(1f))
+                tuitionErrorMessage != null -> HistoryError(
                     message = tuitionErrorMessage,
                     onRetryClick = onTuitionRetryClick,
                     modifier = Modifier.weight(1f)
                 )
+                tuitionHistories.isEmpty() -> HistoryEmpty(
+                    message = "등록금 내역이 없습니다.",
+                    modifier = Modifier.weight(1f)
+                )
                 else -> TuitionHistoryList(
                     tuitionHistories = tuitionHistories,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            TuitionScholarshipTab.SCHOLARSHIP -> when {
+                isScholarshipLoading -> HistoryLoading(modifier = Modifier.weight(1f))
+                scholarshipErrorMessage != null -> HistoryError(
+                    message = scholarshipErrorMessage,
+                    onRetryClick = onScholarshipRetryClick,
+                    modifier = Modifier.weight(1f)
+                )
+                scholarshipHistories.isEmpty() -> HistoryEmpty(
+                    message = "장학금 내역이 없습니다.",
+                    modifier = Modifier.weight(1f)
+                )
+                else -> ScholarshipHistoryList(
+                    scholarshipHistories = scholarshipHistories,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -118,8 +145,8 @@ private fun ScholarshipHeader(
 
 @Composable
 private fun ScholarshipTabs(
-    selectedTab: ScholarshipTab,
-    onTabClick: (ScholarshipTab) -> Unit,
+    selectedTab: TuitionScholarshipTab,
+    onTabClick: (TuitionScholarshipTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -130,7 +157,7 @@ private fun ScholarshipTabs(
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        ScholarshipTab.entries.forEach { tab ->
+        TuitionScholarshipTab.entries.forEach { tab ->
             val isSelected = selectedTab == tab
             Box(
                 modifier = Modifier
@@ -163,6 +190,102 @@ private fun ScholarshipTabs(
 }
 
 @Composable
+private fun ScholarshipHistoryList(
+    scholarshipHistories: List<ScholarshipHistory>,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            top = 12.dp,
+            end = 20.dp,
+            bottom = 20.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(scholarshipHistories) { history ->
+            ScholarshipHistoryCard(history = history)
+        }
+    }
+}
+
+@Composable
+private fun ScholarshipHistoryCard(
+    history: ScholarshipHistory,
+    modifier: Modifier = Modifier
+) {
+    val isCompleted = history.processStatus == "지급완료"
+    val detail = history.dropReason.ifBlank { history.note }
+    val description = listOf(
+        "${history.year} ${history.semester}",
+        history.processDate,
+        detail
+    ).filter { it.isNotBlank() }.joinToString(" · ")
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(93.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Text(
+                text = history.scholarshipName,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = history.processStatus,
+                color = if (isCompleted) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        if (isCompleted) {
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)
+                        } else {
+                            MaterialTheme.colorScheme.background
+                        }
+                    )
+                    .padding(horizontal = 7.dp, vertical = 4.dp)
+            )
+        }
+        Text(
+            text = "${history.actualAmount}원",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.5).sp
+        )
+        Text(
+            text = description,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 private fun TuitionHistoryList(
     tuitionHistories: List<TuitionHistory>,
     modifier: Modifier = Modifier
@@ -191,6 +314,7 @@ private fun TuitionHistoryCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .height(93.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -231,7 +355,7 @@ private fun TuitionHistoryCard(
 }
 
 @Composable
-private fun ScholarshipLoading(modifier: Modifier = Modifier) {
+private fun HistoryLoading(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -241,7 +365,7 @@ private fun ScholarshipLoading(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ScholarshipError(
+private fun HistoryError(
     message: String,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -259,6 +383,23 @@ private fun ScholarshipError(
         TextButton(onClick = onRetryClick) {
             Text(text = "다시 시도")
         }
+    }
+}
+
+@Composable
+private fun HistoryEmpty(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp
+        )
     }
 }
 
@@ -326,9 +467,76 @@ private val previewTuitionHistories = listOf(
     )
 )
 
-@Preview(name = "Light", showBackground = true, widthDp = 402, heightDp = 874)
+private val previewScholarshipHistories = listOf(
+    ScholarshipHistory(
+        year = "2026",
+        semester = "1학기",
+        scholarshipName = "특별장학금(주거비지원)_학업장려비",
+        paymentMethod = "사후지급",
+        processStatus = "선발탈락",
+        note = "",
+        dropReason = "순위 외",
+        processDate = "2026.06.16",
+        selectedAmount = "0",
+        actualAmount = "0",
+        redeemedAmount = "0",
+        replacedAmount = "0",
+        replacedScholarshipName = "",
+        workDepartment = ""
+    ),
+    ScholarshipHistory(
+        year = "2026",
+        semester = "1학기",
+        scholarshipName = "한국장학재단(국가장학금Ⅰ유형)",
+        paymentMethod = "사전감면",
+        processStatus = "선발탈락",
+        note = "",
+        dropReason = "소득분위 초과",
+        processDate = "2026.02.03",
+        selectedAmount = "0",
+        actualAmount = "0",
+        redeemedAmount = "0",
+        replacedAmount = "0",
+        replacedScholarshipName = "",
+        workDepartment = ""
+    ),
+    ScholarshipHistory(
+        year = "2022",
+        semester = "2학기",
+        scholarshipName = "학과(부)우수장학금",
+        paymentMethod = "사후지급",
+        processStatus = "지급완료",
+        note = "[융특]학과우수장학금",
+        dropReason = "",
+        processDate = "2023.02.14",
+        selectedAmount = "100,000",
+        actualAmount = "100,000",
+        redeemedAmount = "0",
+        replacedAmount = "0",
+        replacedScholarshipName = "",
+        workDepartment = ""
+    ),
+    ScholarshipHistory(
+        year = "2022",
+        semester = "1학기",
+        scholarshipName = "한국장학재단(국가장학금Ⅱ유형) 신·편입생지원",
+        paymentMethod = "사전감면",
+        processStatus = "지급완료",
+        note = "",
+        dropReason = "",
+        processDate = "2022.03.01",
+        selectedAmount = "180,000",
+        actualAmount = "180,000",
+        redeemedAmount = "0",
+        replacedAmount = "0",
+        replacedScholarshipName = "",
+        workDepartment = ""
+    )
+)
+
+@Preview(name = "등록금 - Light", showBackground = true, widthDp = 402, heightDp = 874)
 @Preview(
-    name = "Dark",
+    name = "등록금 - Dark",
     showBackground = true,
     widthDp = 402,
     heightDp = 874,
@@ -338,6 +546,24 @@ private val previewTuitionHistories = listOf(
 private fun ScholarshipScreenPreview() {
     SoongsilLifeAndroidTheme {
         ScholarshipScreen(tuitionHistories = previewTuitionHistories)
+    }
+}
+
+@Preview(name = "장학금 - Light", showBackground = true, widthDp = 402, heightDp = 874)
+@Preview(
+    name = "장학금 - Dark",
+    showBackground = true,
+    widthDp = 402,
+    heightDp = 874,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun ScholarshipHistoryScreenPreview() {
+    SoongsilLifeAndroidTheme {
+        ScholarshipScreen(
+            initialTab = TuitionScholarshipTab.SCHOLARSHIP,
+            scholarshipHistories = previewScholarshipHistories
+        )
     }
 }
 
