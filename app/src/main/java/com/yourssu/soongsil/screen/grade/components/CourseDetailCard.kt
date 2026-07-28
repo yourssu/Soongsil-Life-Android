@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yourssu.soongsil.life.screen.grade.model.CourseItem
+import com.yourssu.soongsil.screen.grade.model.CourseItem
 
 @Composable
 fun CourseDetailCard(

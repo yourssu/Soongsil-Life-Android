@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yourssu.soongsil.life.screen.grade.model.SemesterTab
+import com.yourssu.soongsil.screen.grade.model.SemesterTab
 
 @Composable
 fun SemesterTabs(
@@ -36,7 +36,9 @@ fun SemesterTabs(
                         if (tab.isActive) Color(0xFF0A0A0A) else Color(0xFFF2F4F6),
                         RoundedCornerShape(20.dp)
                     )
-                    .clickable { onTabClick(index) }
+                    .clickable {
+                        onTabClick(index)
+                    }
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {

@@ -1,4 +1,4 @@
-package com.yourssu.soongsil.life.screen.grade.model
+package com.yourssu.soongsil.screen.grade.model
 
 import androidx.compose.ui.graphics.Color
 

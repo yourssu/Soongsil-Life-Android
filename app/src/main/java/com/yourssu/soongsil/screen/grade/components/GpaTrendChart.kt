@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yourssu.soongsil.life.screen.grade.model.GpaPoint
+import com.yourssu.soongsil.screen.grade.model.GpaPoint
 
 @Composable
 fun GpaTrendChart(
