@@ -48,6 +48,7 @@ import com.yourssu.soongsil.screen.chapel.ChapelScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
+import com.yourssu.soongsil.screen.graduation.GraduationScreen
 import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
@@ -180,7 +181,9 @@ class MainActivity : ComponentActivity() {
                             GradeDetailScreen()
                         }
                         composable<Graduate> {
-                            // TODO: Implement GraduateScreen
+                            GraduationScreen(
+                                onBackClick = { navController.popBackStack() }
+                            )
                         }
                         composable<MyPage> {
                             val viewModel: MyPageViewModel = hiltViewModel()
