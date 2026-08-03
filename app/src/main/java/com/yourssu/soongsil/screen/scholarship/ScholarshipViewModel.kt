@@ -27,7 +27,6 @@ class ScholarshipViewModel @Inject constructor(
         loadTuitionHistories()
         loadScholarshipHistories()
     }
-
     fun loadTuitionHistories() {
         _uiState.update {
             it.copy(

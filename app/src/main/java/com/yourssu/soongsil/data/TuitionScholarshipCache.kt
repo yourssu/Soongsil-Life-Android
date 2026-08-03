@@ -9,8 +9,6 @@ import com.yourssu.data.scholarship.ScholarshipHistory
 import com.yourssu.data.scholarship.TuitionHistory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,7 +18,7 @@ private val Context.tuitionScholarshipDataStore by
 
 @Singleton
 class TuitionScholarshipCache @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private val tuitionHistoriesKey = stringPreferencesKey("tuition_histories")
     private val scholarshipHistoriesKey = stringPreferencesKey("scholarship_histories")
