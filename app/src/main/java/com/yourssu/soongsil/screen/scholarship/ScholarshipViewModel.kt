@@ -7,6 +7,7 @@ import com.yourssu.soongsil.data.ScholarshipRepository
 import com.yourssu.soongsil.data.TuitionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,15 +29,26 @@ class ScholarshipViewModel @Inject constructor(
     }
 
     fun loadTuitionHistories() {
-
         _uiState.update {
             it.copy(
-                isTuitionLoading = true,
+                isTuitionLoading = it.tuitionHistories.isEmpty(),
                 tuitionErrorMessage = null
             )
         }
         viewModelScope.launch(Dispatchers.IO) {
-            tuitionRepository.getTuitionHistories()
+            val refreshResult = async { tuitionRepository.getTuitionHistories() }
+            val cachedHistories = tuitionRepository.getCachedTuitionHistories()
+
+            cachedHistories?.let { histories ->
+                _uiState.update {
+                    it.copy(
+                        isTuitionLoading = false,
+                        tuitionHistories = histories
+                    )
+                }
+            }
+
+            refreshResult.await()
                 .onSuccess { histories ->
                     _uiState.update {
                         it.copy(
@@ -47,10 +59,14 @@ class ScholarshipViewModel @Inject constructor(
                 }
                 .onFailure { throwable ->
                     _uiState.update {
+                        val hasHistories = cachedHistories != null || it.tuitionHistories.isNotEmpty()
                         it.copy(
                             isTuitionLoading = false,
-                            tuitionErrorMessage =
+                            tuitionErrorMessage = if (hasHistories) {
+                                null
+                            } else {
                                 throwable.message ?: "등록금 내역을 불러오지 못했습니다."
+                            }
                         )
                     }
                 }
@@ -58,15 +74,26 @@ class ScholarshipViewModel @Inject constructor(
     }
 
     fun loadScholarshipHistories() {
-
         _uiState.update {
             it.copy(
-                isScholarshipLoading = true,
+                isScholarshipLoading = it.scholarshipHistories.isEmpty(),
                 scholarshipErrorMessage = null
             )
         }
         viewModelScope.launch(Dispatchers.IO) {
-            scholarshipRepository.getScholarshipHistories()
+            val refreshResult = async { scholarshipRepository.getScholarshipHistories() }
+            val cachedHistories = scholarshipRepository.getCachedScholarshipHistories()
+
+            cachedHistories?.let { histories ->
+                _uiState.update {
+                    it.copy(
+                        isScholarshipLoading = false,
+                        scholarshipHistories = histories
+                    )
+                }
+            }
+
+            refreshResult.await()
                 .onSuccess { histories ->
                     _uiState.update {
                         it.copy(
@@ -77,10 +104,15 @@ class ScholarshipViewModel @Inject constructor(
                 }
                 .onFailure { throwable ->
                     _uiState.update {
+                        val hasHistories =
+                            cachedHistories != null || it.scholarshipHistories.isNotEmpty()
                         it.copy(
                             isScholarshipLoading = false,
-                            scholarshipErrorMessage =
+                            scholarshipErrorMessage = if (hasHistories) {
+                                null
+                            } else {
                                 throwable.message ?: "장학금 내역을 불러오지 못했습니다."
+                            }
                         )
                     }
                 }

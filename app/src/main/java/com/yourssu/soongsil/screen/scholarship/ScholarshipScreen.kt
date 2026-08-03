@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -198,11 +199,11 @@ private fun ScholarshipHistoryList(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             start = 20.dp,
-            top = 12.dp,
+            top = 11.dp,
             end = 20.dp,
             bottom = 20.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         items(scholarshipHistories) { history ->
             ScholarshipHistoryCard(history = history)
@@ -216,73 +217,100 @@ private fun ScholarshipHistoryCard(
     modifier: Modifier = Modifier
 ) {
     val isCompleted = history.processStatus == "지급완료"
-    val detail = history.dropReason.ifBlank { history.note }
     val description = listOf(
         "${history.year} ${history.semester}",
         history.processDate,
-        detail
-    ).filter { it.isNotBlank() }.joinToString(" · ")
+        history.dropReason,
+        history.note
+    ).filter { it.isNotBlank() }
+        .distinct()
+        .joinToString(" · ")
+    val additionalDescription = listOfNotNull(
+        history.paymentMethod.takeIf { it.isNotBlank() }?.let { "지급방식 $it" },
+        history.selectedAmount.toAmountDetail("선발금액"),
+        history.redeemedAmount.toAmountDetail("환수금액"),
+        history.replacedAmount.toAmountDetail("대체금액"),
+        history.replacedScholarshipName.takeIf { it.isNotBlank() }?.let { "대체장학금 $it" },
+        history.workDepartment.takeIf { it.isNotBlank() }?.let { "근로부서 $it" }
+    ).joinToString(" · ")
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(93.dp)
+            .heightIn(min = 90.5.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 text = history.scholarshipName,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
+                lineHeight = 17.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.padding(end = 62.dp)
             )
             Text(
-                text = history.processStatus,
-                color = if (isCompleted) {
-                    MaterialTheme.colorScheme.tertiary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(
-                        if (isCompleted) {
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)
-                        } else {
-                            MaterialTheme.colorScheme.background
-                        }
-                    )
-                    .padding(horizontal = 7.dp, vertical = 4.dp)
+                text = "${history.actualAmount}원",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp
             )
+            Text(
+                text = description,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+            if (additionalDescription.isNotBlank()) {
+                Text(
+                    text = additionalDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
         Text(
-            text = "${history.actualAmount}원",
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp
-        )
-        Text(
-            text = description,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = history.processStatus,
+            color = if (isCompleted) {
+                MaterialTheme.colorScheme.tertiary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .clip(RoundedCornerShape(6.dp))
+                .background(
+                    if (isCompleted) {
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)
+                    } else {
+                        MaterialTheme.colorScheme.background
+                    }
+                )
+                .padding(horizontal = 7.dp, vertical = 2.dp)
         )
     }
+}
+
+private fun String.toAmountDetail(label: String): String? {
+    val value = trim()
+    if (value.isBlank()) return null
+
+    val amount = value.removeSuffix("원").replace(",", "").trim().toLongOrNull()
+    if (amount == 0L) return null
+
+    return "$label ${if (value.endsWith("원")) value else "${value}원"}"
 }
 
 @Composable
@@ -294,11 +322,11 @@ private fun TuitionHistoryList(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             start = 20.dp,
-            top = 12.dp,
+            top = 11.dp,
             end = 20.dp,
             bottom = 20.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         items(tuitionHistories) { history ->
             TuitionHistoryCard(history = history)
@@ -314,7 +342,7 @@ private fun TuitionHistoryCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(93.dp)
+            .heightIn(min = 93.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -324,12 +352,14 @@ private fun TuitionHistoryCard(
                 text = "${history.year} ${history.semester}",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
+                lineHeight = 17.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = "${history.paymentAmount}원",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp,
+                lineHeight = 24.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp
             )
@@ -337,6 +367,7 @@ private fun TuitionHistoryCard(
                 text = "등록일자 ${history.registrationDate} · 사전감면 ${history.reduction}원",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
+                lineHeight = 13.sp,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -344,12 +375,13 @@ private fun TuitionHistoryCard(
             text = history.registrationType,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 11.sp,
+            lineHeight = 15.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .clip(RoundedCornerShape(6.dp))
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 7.dp, vertical = 4.dp)
+                .padding(horizontal = 7.dp, vertical = 2.dp)
         )
     }
 }
@@ -511,10 +543,10 @@ private val previewScholarshipHistories = listOf(
         processDate = "2023.02.14",
         selectedAmount = "100,000",
         actualAmount = "100,000",
-        redeemedAmount = "0",
-        replacedAmount = "0",
-        replacedScholarshipName = "",
-        workDepartment = ""
+        redeemedAmount = "10,000",
+        replacedAmount = "50,000",
+        replacedScholarshipName = "교내대체장학금",
+        workDepartment = "학생서비스팀"
     ),
     ScholarshipHistory(
         year = "2022",

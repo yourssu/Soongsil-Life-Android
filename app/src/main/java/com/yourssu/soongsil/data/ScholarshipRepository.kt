@@ -6,10 +6,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class ScholarshipRepository @Inject constructor() {
+class ScholarshipRepository @Inject constructor(
+    private val cache: TuitionScholarshipCache
+) {
+    suspend fun getCachedScholarshipHistories(): List<ScholarshipHistory>? =
+        cache.getScholarshipHistories()
 
     suspend fun getScholarshipHistories(): Result<List<ScholarshipHistory>> = runCatching {
-        LmsApi.getScholarshipHistoryTable().items.map { item ->
+        val histories = LmsApi.getScholarshipHistoryTable().items.map { item ->
             ScholarshipHistory(
                 year = item.year,
                 semester = item.semester,
@@ -27,5 +31,7 @@ class ScholarshipRepository @Inject constructor() {
                 workDepartment = item.workDepartment
             )
         }
+        cache.saveScholarshipHistories(histories)
+        histories
     }
 }
