@@ -15,14 +15,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -46,22 +50,34 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.yourssu.data.timetable.TimetableCourse
 import com.yourssu.data.timetable.TimetableDayOfWeek
 import com.yourssu.data.timetable.TimetableSemester
+import com.yourssu.data.timetable.TimetableTerm
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
-import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import kotlin.math.ceil
 import kotlin.math.max
 
 private const val TIMETABLE_START_MINUTES = 8 * 60
 private const val TIMETABLE_DEFAULT_END_MINUTES = 17 * 60
 private const val TIMETABLE_BOTTOM_EXTRA_MINUTES = 30
+private const val TIMETABLE_COMPACT_CARD_THRESHOLD_DP = 54
+private const val TIMETABLE_MEDIUM_CARD_THRESHOLD_DP = 72
+private val TimetableGridLineColor = Color(0xFFDDE2E8)
+private val TimetableGridLineStroke = 0.5.dp
+private val TimetableContainerColor = Color(0xFFF2F4F6)
+private val TimetableTodayColumnColor = Color(0xFFEFF6FF)
+private val TimetableCurrentIndicatorColor = Color(0xFF2563EB)
 
 private val TimetableHourHeight = 48.dp
 
@@ -85,23 +101,23 @@ private val TimetableDayHeaderTextStyle = TextStyle(
 
 private val TimetableTimeLabelTextStyle = TextStyle(
     fontFamily = FontFamily.SansSerif,
-    fontSize = 9.sp,
+    fontSize = 9.5.sp,
     fontWeight = FontWeight.Normal,
-    lineHeight = 10.8.sp,
+    lineHeight = 11.sp,
     letterSpacing = 0.sp
 )
 
 private val TimetableCourseTitleTextStyle = TextStyle(
-    fontSize = 8.sp,
+    fontSize = 9.5.sp,
     fontWeight = FontWeight.Bold,
-    lineHeight = 9.4.sp,
+    lineHeight = 10.5.sp,
     letterSpacing = 0.sp
 )
 
 private val TimetableCourseMetaTextStyle = TextStyle(
-    fontSize = 6.5.sp,
+    fontSize = 7.sp,
     fontWeight = FontWeight.Normal,
-    lineHeight = 7.5.sp,
+    lineHeight = 8.sp,
     letterSpacing = 0.sp
 )
 
@@ -129,18 +145,17 @@ private val TimetableBottomSheetValueTextStyle = TextStyle(
     lineHeight = 16.8.sp
 )
 
-private val TimetableCardBackgroundColors = listOf(
-    Color(0xFFDCE9FF),
-    Color(0xFFECFDF5),
-    Color(0xFFF3E8FF),
-    Color(0xFFFFF7ED)
-)
-
-private val TimetableCardTextColors = listOf(
-    Color(0xFF1D4ED8),
-    Color(0xFF047857),
-    Color(0xFF7E22CE),
-    Color(0xFFC2610A)
+private val TimetableCoursePalettes = listOf(
+    TimetableCoursePalette(backgroundColor = Color(0xFFDBEAFE), textColor = Color(0xFF1D4ED8)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFFFEDD5), textColor = Color(0xFFC2410C)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFDCFCE7), textColor = Color(0xFF15803D)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFF3E8FF), textColor = Color(0xFF7E22CE)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFFEE2E2), textColor = Color(0xFFB91C1C)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFCFFAFE), textColor = Color(0xFF0E7490)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFFEF3C7), textColor = Color(0xFFA16207)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFE0E7FF), textColor = Color(0xFF4338CA)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFFCE7F3), textColor = Color(0xFFBE185D)),
+    TimetableCoursePalette(backgroundColor = Color(0xFFE2E8F0), textColor = Color(0xFF334155))
 )
 
 @Composable
@@ -150,15 +165,25 @@ fun TimetableScreen(
     onCourseClick: (TimetableCourse) -> Unit,
     onDismissCourseDetail: () -> Unit,
     onSelectTerm: ((String, TimetableSemester) -> Unit)? = null,
+    currentDateTimeOverride: ZonedDateTime? = null,
     modifier: Modifier = Modifier
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
     val selectTermAction = onSelectTerm ?: hiltViewModel<TimetableViewModel>()::selectTerm
     val currentYear = uiState.selectedYear.ifBlank { uiState.year.toAcademicYearValue() }
-    val currentSemester = uiState.semester.toTimetableSemesterOrNull() ?: uiState.selectedSemester
+    val currentSemester = uiState.semester.toTimetableSemesterOrNull()
+        ?: uiState.selectedSemester.takeIf { currentYear.isNotBlank() }
+    val selectedTerm = uiState.availableTerms.firstOrNull {
+        it.year == currentYear && it.semester == currentSemester
+    } ?: if (currentYear.isNotBlank() && currentSemester != null) {
+        TimetableTerm(year = currentYear, semester = currentSemester)
+    } else {
+        null
+    }
     var isTermSelectionVisible by remember { mutableStateOf(false) }
-    var pendingYear by remember { mutableStateOf(currentYear) }
-    var pendingSemester by remember { mutableStateOf(currentSemester) }
+    var pendingTerm by remember(selectedTerm, uiState.availableTerms) {
+        mutableStateOf(selectedTerm ?: uiState.availableTerms.firstOrNull())
+    }
 
     Box(
         modifier = modifier
@@ -169,31 +194,40 @@ fun TimetableScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp + bottomBarPadding),
+                .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 20.dp + bottomBarPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             TimetableHeader(
                 year = currentYear,
-                semester = currentSemester.label,
+                semester = currentSemester?.label.orEmpty(),
                 onTermClick = {
-                    pendingYear = currentYear.ifBlank { buildSelectableYears().first() }
-                    pendingSemester = currentSemester
+                    pendingTerm = selectedTerm ?: uiState.availableTerms.firstOrNull()
                     isTermSelectionVisible = true
                 }
             )
 
             when {
-                uiState.isLoading -> TimetableLoadingState()
+                uiState.isLoadingTerms || uiState.isLoading -> TimetableLoadingState()
+                uiState.termLoadError != null -> TimetableAvailableTermsState(
+                    message = uiState.termLoadError,
+                    onRetry = onRetry
+                )
+                uiState.availableTerms.isEmpty() -> TimetableAvailableTermsState(
+                    message = "수강 학기 정보를 불러오지 못했습니다.",
+                    onRetry = onRetry
+                )
                 uiState.errorMessage != null -> TimetableErrorState(
                     message = uiState.errorMessage,
                     onRetry = onRetry
                 )
                 uiState.courses.isEmpty() -> TimetableEmptyState(
                     year = currentYear,
-                    semester = currentSemester.label
+                    semester = currentSemester?.label.orEmpty()
                 )
                 else -> TimetableSuccessState(
                     courses = uiState.courses,
+                    selectedTerm = selectedTerm,
+                    currentDateTime = currentDateTimeOverride,
                     onCourseClick = onCourseClick
                 )
             }
@@ -206,16 +240,19 @@ fun TimetableScreen(
             )
         }
 
-        if (isTermSelectionVisible) {
+        if (isTermSelectionVisible && uiState.selectedCourse == null) {
             TimetableTermSelectionBottomSheet(
-                selectedYear = pendingYear,
-                selectedSemester = pendingSemester,
-                onYearSelected = { pendingYear = it },
-                onSemesterSelected = { pendingSemester = it },
+                availableTerms = uiState.availableTerms,
+                selectedTerm = pendingTerm,
+                isLoading = uiState.isLoadingTerms,
+                errorMessage = uiState.termLoadError,
+                onTermSelected = { pendingTerm = it },
+                onRetry = onRetry,
                 onDismiss = { isTermSelectionVisible = false },
                 onApply = {
+                    val appliedTerm = pendingTerm ?: return@TimetableTermSelectionBottomSheet
                     isTermSelectionVisible = false
-                    selectTermAction(pendingYear, pendingSemester)
+                    selectTermAction(appliedTerm.year, appliedTerm.semester)
                 }
             )
         }
@@ -250,8 +287,12 @@ private fun TimetableHeader(
             contentAlignment = Alignment.Center
         ) {
             Row(
-                modifier = Modifier.clickable(onClick = onTermClick),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onTermClick)
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .padding(horizontal = 6.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -261,11 +302,11 @@ private fun TimetableHeader(
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
-                Text(
-                    text = "▼",
-                    style = TimetableSemesterTextStyle,
-                    color = semesterTextColor,
-                    maxLines = 1
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "학기 선택",
+                    modifier = Modifier.width(18.dp),
+                    tint = semesterTextColor,
                 )
             }
         }
@@ -335,6 +376,44 @@ private fun TimetableErrorState(
 }
 
 @Composable
+private fun TimetableAvailableTermsState(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "조회 가능한 학기가 없습니다",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                textAlign = TextAlign.Center
+            )
+            Button(onClick = onRetry) {
+                Text(text = "다시 시도")
+            }
+        }
+    }
+}
+
+@Composable
 private fun TimetableEmptyState(
     year: String,
     semester: String
@@ -380,21 +459,19 @@ private fun TimetableEmptyState(
 @Composable
 private fun TimetableSuccessState(
     courses: List<TimetableCourse>,
+    selectedTerm: TimetableTerm?,
+    currentDateTime: ZonedDateTime?,
     onCourseClick: (TimetableCourse) -> Unit
 ) {
-    val containerColor = if (isSystemInDarkTheme()) {
-        Color(0xFFF2F4F6)
-    } else {
-        Color(0xFFF2F4F6)
-    }
-
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = containerColor,
+        color = TimetableContainerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
         TimetableGrid(
             courses = courses,
+            selectedTerm = selectedTerm,
+            currentDateTime = currentDateTime,
             onCourseClick = onCourseClick,
             modifier = Modifier
                 .fillMaxWidth()
@@ -406,10 +483,13 @@ private fun TimetableSuccessState(
 @Composable
 private fun TimetableGrid(
     courses: List<TimetableCourse>,
+    selectedTerm: TimetableTerm?,
+    currentDateTime: ZonedDateTime?,
     onCourseClick: (TimetableCourse) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val dayHeaders = TimetableDayOfWeek.entries
+    val coursePaletteIndices = remember(courses) { buildTimetableCoursePaletteIndices(courses) }
     val timeLabelColor = if (isSystemInDarkTheme()) {
         MaterialTheme.colorScheme.onSurfaceVariant
     } else {
@@ -420,9 +500,9 @@ private fun TimetableGrid(
         modifier = modifier.fillMaxWidth()
     ) {
         val topPadding = 8.dp
-        val horizontalPadding = 8.dp
-        val timeColumnWidth = 36.dp
-        val columnGap = 2.dp
+        val horizontalPadding = 6.dp
+        val timeColumnWidth = 34.dp
+        val columnGap = 1.dp
         val headerHeight = 24.dp
         val headerSpacing = 4.dp
         val bottomPadding = 8.dp
@@ -436,7 +516,14 @@ private fun TimetableGrid(
         val dayColumnWidth = availableWidth / dayHeaders.size
         val dayColumnStride = dayColumnWidth + columnGap
         val contentStartX = horizontalPadding + timeColumnWidth
-        val gridLineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+        val gridWidth = dayColumnWidth * dayHeaders.size + columnGap * (dayHeaders.size - 1)
+        val effectiveCurrentDateTime = currentDateTime ?: remember { ZonedDateTime.now() }
+        val currentState = remember(selectedTerm, effectiveCurrentDateTime) {
+            buildTimetableCurrentState(
+                selectedTerm = selectedTerm,
+                now = effectiveCurrentDateTime
+            )
+        }
         val visibleCourses = courses.filter {
             it.endMinutes > TIMETABLE_START_MINUTES && it.startMinutes < timetableEndMinutes
         }
@@ -456,34 +543,43 @@ private fun TimetableGrid(
             val columnGapPx = columnGap.toPx()
             val gridHeightPx = gridHeight.toPx()
             val contentStartXPx = horizontalPaddingPx + timeColumnWidthPx
+            val gridRightXPx = contentStartXPx + gridWidth.toPx()
+            val gridStrokeWidth = TimetableGridLineStroke.toPx()
+
+            currentState.todayDayOfWeek?.let { todayDayOfWeek ->
+                drawRect(
+                    color = TimetableTodayColumnColor,
+                    topLeft = Offset(
+                        x = contentStartXPx + dayColumnStride.toPx() * todayDayOfWeek.ordinal,
+                        y = gridTopPx
+                    ),
+                    size = androidx.compose.ui.geometry.Size(
+                        width = dayColumnWidthPx,
+                        height = gridHeightPx
+                    )
+                )
+            }
 
             hourLabels.forEach { labelMinutes ->
                 val minutesFromStart = (labelMinutes - TIMETABLE_START_MINUTES).toFloat()
                 val y = gridTopPx + gridHeightPx * (minutesFromStart / totalMinutes)
                 drawLine(
-                    color = gridLineColor,
+                    color = TimetableGridLineColor,
                     start = Offset(contentStartXPx, y),
-                    end = Offset(size.width - horizontalPaddingPx, y),
-                    strokeWidth = 1.dp.toPx()
+                    end = Offset(gridRightXPx, y),
+                    strokeWidth = gridStrokeWidth
                 )
             }
 
-            for (index in 0..dayHeaders.size) {
-                val x = contentStartXPx + (dayColumnWidthPx + columnGapPx) * index - (columnGapPx * index.coerceAtMost(dayHeaders.size - 1))
+            for (index in 1 until dayHeaders.size) {
+                val x = contentStartXPx + dayColumnWidthPx * index + columnGapPx * (index - 0.5f)
                 drawLine(
-                    color = gridLineColor,
-                    start = Offset(x, topPaddingPx),
+                    color = TimetableGridLineColor,
+                    start = Offset(x, gridTopPx),
                     end = Offset(x, gridTopPx + gridHeightPx),
-                    strokeWidth = 1.dp.toPx()
+                    strokeWidth = gridStrokeWidth
                 )
             }
-
-            drawLine(
-                color = gridLineColor,
-                start = Offset(contentStartXPx, topPaddingPx + headerHeightPx),
-                end = Offset(size.width - horizontalPaddingPx, topPaddingPx + headerHeightPx),
-                strokeWidth = 1.dp.toPx()
-            )
         }
 
         dayHeaders.forEachIndexed { index, dayOfWeek ->
@@ -495,7 +591,11 @@ private fun TimetableGrid(
             ) {
                 Text(
                     text = dayOfWeek.shortLabel,
-                    color = timeLabelColor,
+                    color = if (currentState.todayDayOfWeek == dayOfWeek) {
+                        TimetableCurrentIndicatorColor
+                    } else {
+                        timeLabelColor
+                    },
                     style = TimetableDayHeaderTextStyle,
                     textAlign = TextAlign.Center,
                     maxLines = 1
@@ -509,7 +609,7 @@ private fun TimetableGrid(
             Box(
                 modifier = Modifier
                     .width(timeColumnWidth)
-                    .offset(x = horizontalPadding, y = offsetY - 6.dp),
+                    .offset(x = horizontalPadding, y = offsetY - 7.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -517,7 +617,10 @@ private fun TimetableGrid(
                     color = timeLabelColor,
                     style = TimetableTimeLabelTextStyle,
                     textAlign = TextAlign.Center,
-                    maxLines = 1
+                    maxLines = 1,
+                    modifier = Modifier
+                        .background(TimetableContainerColor)
+                        .padding(horizontal = 1.dp)
                 )
             }
         }
@@ -533,6 +636,7 @@ private fun TimetableGrid(
             TimetableCourseCard(
                 course = course,
                 cardHeight = cardHeight,
+                coursePaletteIndex = coursePaletteIndices[course.subject] ?: 0,
                 modifier = Modifier
                     .width(dayColumnWidth)
                     .height(cardHeight)
@@ -553,37 +657,56 @@ private fun calculateTimetableEndMinutes(courses: List<TimetableCourse>): Int {
 private fun TimetableCourseCard(
     course: TimetableCourse,
     cardHeight: Dp,
+    coursePaletteIndex: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coursePalette = course.toCoursePalette()
-    val classroomText = course.classroom.formatClassroomForCard()
+    val coursePalette = TimetableCoursePalettes.getOrElse(coursePaletteIndex) {
+        TimetableCoursePalettes.first()
+    }
+    val classroomDisplay = splitClassroom(course.classroom)
+    val cardContentSpec = buildCourseCardContentSpec(cardHeight)
+    val locationLines = classroomDisplay.toCardLocationLines(isCompactCard = cardContentSpec.isCompact)
+    val titleFontSpec = courseTitleFontSpec(course.subject)
 
-    Column(
+    Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(coursePalette.backgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+        contentAlignment = if (cardContentSpec.isCompact) Alignment.CenterStart else Alignment.TopStart
     ) {
-        Text(
-            text = course.subject,
-            color = coursePalette.textColor,
-            style = course.toCourseTitleTextStyle(cardHeight),
-            maxLines = cardHeight.toCourseTitleMaxLines(),
-            softWrap = true,
-            overflow = TextOverflow.Clip
-        )
-        if (classroomText.isNotBlank()) {
-            Box(modifier = Modifier.height(0.5.dp))
+        Column(
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
             Text(
-                text = classroomText,
+                text = course.subject,
                 color = coursePalette.textColor,
-                style = TimetableCourseMetaTextStyle,
-                maxLines = 2,
+                style = TimetableCourseTitleTextStyle.copy(
+                    fontSize = titleFontSpec.maxFontSize,
+                    lineHeight = titleFontSpec.lineHeight,
+                    textAlign = TextAlign.Start
+                ),
+                autoSize = titleFontSpec.autoSize,
+                maxLines = cardContentSpec.titleMaxLines,
                 softWrap = true,
-                overflow = TextOverflow.Clip
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start
             )
+
+            locationLines.forEach { line ->
+                Text(
+                    text = line,
+                    color = coursePalette.textColor,
+                    style = TimetableCourseMetaTextStyle.copy(textAlign = TextAlign.Start),
+                    maxLines = if (cardContentSpec.isCompact) 2 else 1,
+                    softWrap = true,
+                    overflow = TextOverflow.Clip,
+                    textAlign = TextAlign.Start
+                )
+            }
         }
     }
 }
@@ -705,15 +828,16 @@ private fun TimetableBottomSheetDragHandle() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimetableTermSelectionBottomSheet(
-    selectedYear: String,
-    selectedSemester: TimetableSemester,
-    onYearSelected: (String) -> Unit,
-    onSemesterSelected: (TimetableSemester) -> Unit,
+    availableTerms: List<TimetableTerm>,
+    selectedTerm: TimetableTerm?,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onTermSelected: (TimetableTerm) -> Unit,
+    onRetry: () -> Unit,
     onDismiss: () -> Unit,
     onApply: () -> Unit
 ) {
     val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val selectableYears = remember { buildSelectableYears() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -724,6 +848,7 @@ private fun TimetableTermSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp + navigationBarBottomPadding),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -734,23 +859,24 @@ private fun TimetableTermSelectionBottomSheet(
                 fontWeight = FontWeight.Bold
             )
 
-            TimetableTermSection(title = "학년도 선택") {
-                selectableYears.forEach { year ->
-                    TimetableTermOption(
-                        text = buildSemesterText(year = year, semester = ""),
-                        isSelected = year == selectedYear,
-                        onClick = { onYearSelected(year) }
-                    )
-                }
-            }
-
-            TimetableTermSection(title = "학기 선택") {
-                TimetableSemester.entries.forEach { semester ->
-                    TimetableTermOption(
-                        text = semester.label,
-                        isSelected = semester == selectedSemester,
-                        onClick = { onSemesterSelected(semester) }
-                    )
+            when {
+                isLoading -> TimetableTermSelectionLoadingState()
+                errorMessage != null -> TimetableTermSelectionUnavailableState(
+                    message = errorMessage,
+                    onRetry = onRetry
+                )
+                availableTerms.isEmpty() -> TimetableTermSelectionUnavailableState(
+                    message = "수강 학기 정보를 불러오지 못했습니다.",
+                    onRetry = onRetry
+                )
+                else -> TimetableTermSection(title = "조회 가능한 학기") {
+                    availableTerms.forEach { term ->
+                        TimetableTermOption(
+                            text = buildSemesterText(year = term.year, semester = term.semester.label),
+                            isSelected = term == selectedTerm,
+                            onClick = { onTermSelected(term) }
+                        )
+                    }
                 }
             }
 
@@ -788,6 +914,7 @@ private fun TimetableTermSelectionBottomSheet(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
+                    enabled = !isLoading && errorMessage == null && availableTerms.isNotEmpty() && selectedTerm != null,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -808,6 +935,53 @@ private fun TimetableTermSelectionBottomSheet(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TimetableTermSelectionLoadingState() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = "수강 학기 정보를 불러오는 중입니다.",
+            color = Color(0xFF6B7280),
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun TimetableTermSelectionUnavailableState(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "조회 가능한 학기가 없습니다",
+            color = Color(0xFF0A0A0A),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = message,
+            color = Color(0xFF6B7280),
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            textAlign = TextAlign.Center
+        )
+        Button(onClick = onRetry) {
+            Text(text = "다시 시도")
         }
     }
 }
@@ -886,7 +1060,9 @@ private fun String.toDisplaySemesterLabel(): String {
         trimmedValue.endsWith("학기") -> trimmedValue
         trimmedValue == "1" -> "1학기"
         trimmedValue == "2" -> "2학기"
+        trimmedValue.startsWith("하계") -> "여름학기"
         trimmedValue.startsWith("여름") -> "여름학기"
+        trimmedValue.startsWith("동계") -> "겨울학기"
         trimmedValue.startsWith("겨울") -> "겨울학기"
         else -> trimmedValue
     }
@@ -896,91 +1072,100 @@ private fun String.toTimetableSemesterOrNull(): TimetableSemester? {
     return TimetableSemester.fromName(this)
 }
 
-private fun buildSelectableYears(currentDate: LocalDate = LocalDate.now()): List<String> {
-    return (currentDate.year downTo currentDate.year - 5).map { it.toString() }
+internal fun buildTimetableCoursePaletteIndices(
+    courses: List<TimetableCourse>,
+    paletteSize: Int = TimetableCoursePalettes.size
+): Map<String, Int> {
+    if (paletteSize <= 0) return emptyMap()
+
+    return courses
+        .map { it.subject }
+        .distinct()
+        .sorted()
+        .mapIndexed { index, subject -> subject to index % paletteSize }
+        .toMap()
 }
 
-private fun TimetableCourse.toCoursePalette(): TimetableCoursePalette {
-    return when {
-        subject == "운영체제" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFDCE9FF),
-            textColor = Color(0xFF1D4ED8)
-        )
-        subject == "데이터베이스응용" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFECFDF5),
-            textColor = Color(0xFF047857)
-        )
-        subject == "네트워크보안" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFF3E8FF),
-            textColor = Color(0xFF7E22CE)
-        )
-        subject == "UI/UX설계및실습" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFFFF7ED),
-            textColor = Color(0xFFC2610A)
-        )
-        subject == "소프트웨어분석및설계" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFECFDF5),
-            textColor = Color(0xFF047857)
-        )
-        subject == "비전체플" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFFFF7ED),
-            textColor = Color(0xFFC2610A)
-        )
-        subject == "캡스톤디자인종합프로젝트1" && dayOfWeek == TimetableDayOfWeek.MONDAY -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFF3E8FF),
-            textColor = Color(0xFF7E22CE)
-        )
-        subject == "캡스톤디자인종합프로젝트1" -> TimetableCoursePalette(
-            backgroundColor = Color(0xFFFFF7ED),
-            textColor = Color(0xFFC2610A)
-        )
-        else -> {
-            val paletteIndex = ((subject.hashCode() % TimetableCardBackgroundColors.size) + TimetableCardBackgroundColors.size) %
-                TimetableCardBackgroundColors.size
-            TimetableCoursePalette(
-                backgroundColor = TimetableCardBackgroundColors[paletteIndex],
-                textColor = TimetableCardTextColors[paletteIndex]
-            )
-        }
-    }
+internal fun courseTitleFontSize(subject: String) = when (subject.trim().length) {
+    in 0..8 -> 9.5.sp
+    in 9..13 -> 8.5.sp
+    else -> 7.5.sp
 }
 
-private fun TimetableCourse.toCourseTitleTextStyle(cardHeight: Dp): TextStyle {
-    val fontSize = calculateCourseTitleFontSize(subject = subject, cardHeight = cardHeight)
-    val lineHeight = when (fontSize) {
-        8.sp -> 9.4.sp
-        7.5.sp -> 8.8.sp
-        else -> 8.2.sp
+private fun courseTitleFontSpec(subject: String): TimetableCourseTitleFontSpec {
+    val maxFontSize = courseTitleFontSize(subject)
+    val lineHeight = when (maxFontSize) {
+        9.5.sp -> 10.5.sp
+        8.5.sp -> 9.5.sp
+        else -> 8.5.sp
     }
-    return TimetableCourseTitleTextStyle.copy(
-        fontSize = fontSize,
-        lineHeight = lineHeight
+
+    return TimetableCourseTitleFontSpec(
+        maxFontSize = maxFontSize,
+        lineHeight = lineHeight,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = 7.5.sp,
+            maxFontSize = maxFontSize,
+            stepSize = 0.5.sp
+        )
     )
 }
 
-private fun calculateCourseTitleFontSize(subject: String, cardHeight: Dp) = when {
-    cardHeight >= 60.dp && subject.length <= 8 -> 8.sp
-    subject.length <= 8 -> 8.sp
-    subject.length <= 13 -> 7.5.sp
-    else -> 7.sp
-}
-
-private fun Dp.toCourseTitleMaxLines(): Int {
-    return if (this >= 60.dp) 3 else 2
-}
-
-private fun String.formatClassroomForCard(): String {
-    val trimmedClassroom = trim()
-    if (trimmedClassroom.isBlank()) return ""
+internal fun splitClassroom(classroom: String?): ClassroomDisplay {
+    val trimmedClassroom = classroom?.trim().orEmpty()
+    if (trimmedClassroom.isBlank()) return ClassroomDisplay()
 
     val lastWhitespaceIndex = trimmedClassroom.lastIndexOf(' ')
-    if (lastWhitespaceIndex == -1) return trimmedClassroom
+    if (lastWhitespaceIndex == -1) {
+        return ClassroomDisplay(building = trimmedClassroom)
+    }
 
-    val trailingPart = trimmedClassroom.substring(lastWhitespaceIndex + 1)
-    return if (trailingPart.any { it.isDigit() }) {
-        trimmedClassroom.substring(0, lastWhitespaceIndex) + "\n" + trailingPart
+    val building = trimmedClassroom.substring(0, lastWhitespaceIndex).trim().ifBlank { null }
+    val room = trimmedClassroom.substring(lastWhitespaceIndex + 1).trim().ifBlank { null }
+
+    return if (room != null && room.any { it.isDigit() }) {
+        ClassroomDisplay(building = building, room = room)
     } else {
-        trimmedClassroom
+        ClassroomDisplay(building = trimmedClassroom)
+    }
+}
+
+internal fun isCurrentTimetableTerm(
+    term: TimetableTerm?,
+    now: Instant
+): Boolean {
+    val startAt = term?.startAt.toInstantOrNull() ?: return false
+    val endAt = term?.endAt.toInstantOrNull() ?: return false
+    return !now.isBefore(startAt) && !now.isAfter(endAt)
+}
+
+private fun buildTimetableCurrentState(
+    selectedTerm: TimetableTerm?,
+    now: ZonedDateTime
+): TimetableCurrentState {
+    val currentTerm = isCurrentTimetableTerm(selectedTerm, now.toInstant())
+    val todayDayOfWeek = if (currentTerm) now.dayOfWeek.toTimetableDayOfWeekOrNull() else null
+    return TimetableCurrentState(
+        isCurrentTerm = currentTerm,
+        todayDayOfWeek = todayDayOfWeek
+    )
+}
+
+private fun String?.toInstantOrNull(): Instant? {
+    val trimmedValue = this?.trim().orEmpty()
+    if (trimmedValue.isBlank()) return null
+    return runCatching { Instant.parse(trimmedValue) }.getOrNull()
+}
+
+private fun DayOfWeek.toTimetableDayOfWeekOrNull(): TimetableDayOfWeek? {
+    return when (this) {
+        DayOfWeek.MONDAY -> TimetableDayOfWeek.MONDAY
+        DayOfWeek.TUESDAY -> TimetableDayOfWeek.TUESDAY
+        DayOfWeek.WEDNESDAY -> TimetableDayOfWeek.WEDNESDAY
+        DayOfWeek.THURSDAY -> TimetableDayOfWeek.THURSDAY
+        DayOfWeek.FRIDAY -> TimetableDayOfWeek.FRIDAY
+        DayOfWeek.SATURDAY,
+        DayOfWeek.SUNDAY -> null
     }
 }
 
@@ -1021,6 +1206,103 @@ private fun Int.toTimeText(): String {
 private data class TimetableCoursePalette(
     val backgroundColor: Color,
     val textColor: Color
+)
+
+private data class TimetableCourseTitleFontSpec(
+    val maxFontSize: androidx.compose.ui.unit.TextUnit,
+    val lineHeight: androidx.compose.ui.unit.TextUnit,
+    val autoSize: TextAutoSize
+)
+
+internal data class ClassroomDisplay(
+    val building: String? = null,
+    val room: String? = null
+)
+
+private data class TimetableCurrentState(
+    val isCurrentTerm: Boolean,
+    val todayDayOfWeek: TimetableDayOfWeek? = null
+)
+
+internal data class TimetableCourseCardContentSpec(
+    val titleMaxLines: Int,
+    val locationLineCount: Int,
+    val isCompact: Boolean
+)
+
+internal fun buildCourseCardContentSpec(cardHeight: Dp): TimetableCourseCardContentSpec {
+    return when {
+        cardHeight < TIMETABLE_COMPACT_CARD_THRESHOLD_DP.dp -> TimetableCourseCardContentSpec(
+            titleMaxLines = 2,
+            locationLineCount = 2,
+            isCompact = true
+        )
+        cardHeight < TIMETABLE_MEDIUM_CARD_THRESHOLD_DP.dp -> TimetableCourseCardContentSpec(
+            titleMaxLines = 2,
+            locationLineCount = 1,
+            isCompact = false
+        )
+        else -> TimetableCourseCardContentSpec(
+            titleMaxLines = 2,
+            locationLineCount = 2,
+            isCompact = false
+        )
+    }
+}
+
+private fun ClassroomDisplay.toCardLocationLines(isCompactCard: Boolean): List<String> {
+    if (isCompactCard) {
+        return listOfNotNull(formatCompactClassroom(building = building, room = room))
+    }
+
+    return buildList {
+        building?.let(::add)
+        room?.let(::add)
+    }
+}
+
+private fun formatCompactClassroom(
+    building: String?,
+    room: String?,
+): String? {
+    return listOfNotNull(building, room)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .joinToString("\n")
+        .ifBlank { null }
+}
+
+private val previewAvailableTerms = listOf(
+    TimetableTerm(
+        year = "2026",
+        semester = TimetableSemester.SECOND,
+        sourceName = "2026년 2학기",
+        startAt = "2026-07-01T00:00:00Z",
+        endAt = "2026-12-31T23:59:59Z"
+    ),
+    TimetableTerm(
+        year = "2026",
+        semester = TimetableSemester.FIRST,
+        sourceName = "2026년 1학기",
+        startAt = "2026-01-01T00:00:00Z",
+        endAt = "2026-06-30T23:59:59Z"
+    ),
+    TimetableTerm(
+        year = "2025",
+        semester = TimetableSemester.SECOND,
+        sourceName = "2025년 2학기",
+        startAt = "2025-07-01T00:00:00Z",
+        endAt = "2025-12-31T23:59:59Z"
+    ),
+    TimetableTerm(
+        year = "2025",
+        semester = TimetableSemester.FIRST,
+        sourceName = "2025년 1학기",
+        startAt = "2025-01-01T00:00:00Z",
+        endAt = "2025-06-30T23:59:59Z"
+    ),
+    TimetableTerm(year = "2024", semester = TimetableSemester.SUMMER, sourceName = "2024-하계계절제"),
+    TimetableTerm(year = "2023", semester = TimetableSemester.WINTER, sourceName = "2023-동계계절제")
 )
 
 private val previewCourses = listOf(
@@ -1076,32 +1358,63 @@ private val previewCoursesWithLateClass = listOf(
 
 private val previewCoursesWithLongText = listOf(
     TimetableCourse(
-        subject = "기초컴퓨터프로그래밍및실습",
+        subject = "고급컴퓨터프로그래밍및실습",
         professor = "김교수",
-        classroom = "형남공학관 3207",
+        classroom = "정보과학관 101호",
         dayOfWeek = TimetableDayOfWeek.MONDAY,
         startMinutes = 9 * 60,
         endMinutes = 9 * 60 + 50,
         periodText = "09:00-09:50"
     ),
     TimetableCourse(
-        subject = "네트워크프로그래밍",
+        subject = "시스템소프트웨어설계",
         professor = "이교수",
-        classroom = "정보과학관 21303",
+        classroom = "형남공학관 305호",
         dayOfWeek = TimetableDayOfWeek.WEDNESDAY,
         startMinutes = 10 * 60 + 30,
         endMinutes = 11 * 60 + 45,
         periodText = "10:30-11:45"
     ),
     TimetableCourse(
-        subject = "고급소프트웨어분석설계",
+        subject = "데이터베이스응용",
         professor = "박교수",
-        classroom = "조만식기념관 세미나실",
+        classroom = "미래관 202호",
         dayOfWeek = TimetableDayOfWeek.FRIDAY,
         startMinutes = 13 * 60,
         endMinutes = 13 * 60 + 50,
         periodText = "13:00-13:50"
+    ),
+    TimetableCourse(
+        subject = "온라인세미나",
+        professor = "정교수",
+        classroom = "온라인",
+        dayOfWeek = TimetableDayOfWeek.THURSDAY,
+        startMinutes = 15 * 60,
+        endMinutes = 15 * 60 + 50,
+        periodText = "15:00-15:50"
+    ),
+    TimetableCourse(
+        subject = "캡스톤설계",
+        professor = "조교수",
+        classroom = "",
+        dayOfWeek = TimetableDayOfWeek.TUESDAY,
+        startMinutes = 16 * 60,
+        endMinutes = 16 * 60 + 50,
+        periodText = "16:00-16:50"
     )
+)
+
+private val previewTenCourses = listOf(
+    TimetableCourse("고급컴퓨터프로그래밍및실습", "김교수", "정보과학관 21303", TimetableDayOfWeek.MONDAY, 9 * 60, 9 * 60 + 50, "09:00-09:50"),
+    TimetableCourse("시스템소프트웨어설계", "이교수", "형남공학관 3207", TimetableDayOfWeek.MONDAY, 11 * 60, 12 * 60 + 15, "11:00-12:15"),
+    TimetableCourse("데이터베이스응용", "박교수", "정보과학관 21303", TimetableDayOfWeek.TUESDAY, 9 * 60, 10 * 60 + 15, "09:00-10:15"),
+    TimetableCourse("알고리즘", "최교수", "정보과학관 20302", TimetableDayOfWeek.TUESDAY, 15 * 60, 15 * 60 + 50, "15:00-15:50"),
+    TimetableCourse("컴퓨터구조", "정교수", "형남공학관 410호", TimetableDayOfWeek.WEDNESDAY, 10 * 60 + 30, 11 * 60 + 45, "10:30-11:45"),
+    TimetableCourse("운영체제", "이교수", "형남공학관 305호", TimetableDayOfWeek.WEDNESDAY, 15 * 60, 15 * 60 + 50, "15:00-15:50"),
+    TimetableCourse("네트워크보안", "김교수", "정보과학관 21404", TimetableDayOfWeek.THURSDAY, 12 * 60, 12 * 60 + 50, "12:00-12:50"),
+    TimetableCourse("모바일프로그래밍", "조교수", "정보과학관 202호", TimetableDayOfWeek.THURSDAY, 15 * 60, 16 * 60 + 15, "15:00-16:15"),
+    TimetableCourse("인공지능개론", "박교수", "조만식기념관 501호", TimetableDayOfWeek.FRIDAY, 9 * 60, 9 * 60 + 50, "09:00-09:50"),
+    TimetableCourse("캡스톤디자인", "송교수", "형남공학관 410호", TimetableDayOfWeek.FRIDAY, 12 * 60, 13 * 60 + 15, "12:00-13:15")
 )
 
 private val previewBottomSheetCourse = TimetableCourse(
@@ -1112,6 +1425,17 @@ private val previewBottomSheetCourse = TimetableCourse(
     startMinutes = 10 * 60 + 30,
     endMinutes = 11 * 60 + 45,
     periodText = "10:30-11:45"
+)
+
+private val previewCurrentDateTime = ZonedDateTime.of(
+    2026,
+    8,
+    3,
+    11,
+    20,
+    0,
+    0,
+    ZoneId.of("Asia/Seoul")
 )
 
 @Preview(name = "Timetable Light", showBackground = true, widthDp = 402)
@@ -1128,6 +1452,7 @@ private fun TimetableScreenPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 courses = previewCourses
@@ -1135,7 +1460,8 @@ private fun TimetableScreenPreview() {
             onRetry = {},
             onCourseClick = {},
             onDismissCourseDetail = {},
-            onSelectTerm = { _, _ -> }
+            onSelectTerm = { _, _ -> },
+            currentDateTimeOverride = previewCurrentDateTime
         )
     }
 }
@@ -1148,13 +1474,15 @@ private fun TimetableEmptyPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND
             ),
             onRetry = {},
             onCourseClick = {},
             onDismissCourseDetail = {},
-            onSelectTerm = { _, _ -> }
+            onSelectTerm = { _, _ -> },
+            currentDateTimeOverride = previewCurrentDateTime
         )
     }
 }
@@ -1167,6 +1495,7 @@ private fun TimetableErrorPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 errorMessage = "LMS 세션이 만료되어 시간표를 불러오지 못했습니다."
@@ -1187,6 +1516,7 @@ private fun TimetableBottomSheetPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 courses = previewCourses,
@@ -1208,6 +1538,7 @@ private fun TimetableLateClassPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 courses = previewCoursesWithLateClass
@@ -1220,7 +1551,7 @@ private fun TimetableLateClassPreview() {
     }
 }
 
-@Preview(name = "Timetable Long Text", showBackground = true, widthDp = 402)
+@Preview(name = "Timetable Long Course", showBackground = true, widthDp = 402)
 @Composable
 private fun TimetableLongTextPreview() {
     SoongsilLifeAndroidTheme {
@@ -1228,6 +1559,7 @@ private fun TimetableLongTextPreview() {
             uiState = TimetableViewModel.TimetableUiState(
                 year = "2026학년도",
                 semester = "2학기",
+                availableTerms = previewAvailableTerms,
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 courses = previewCoursesWithLongText
@@ -1235,7 +1567,61 @@ private fun TimetableLongTextPreview() {
             onRetry = {},
             onCourseClick = {},
             onDismissCourseDetail = {},
+            onSelectTerm = { _, _ -> },
+            currentDateTimeOverride = previewCurrentDateTime
+        )
+    }
+}
+
+@Preview(name = "Timetable Ten Courses", showBackground = true, widthDp = 402)
+@Composable
+private fun TimetableTenCoursesPreview() {
+    SoongsilLifeAndroidTheme {
+        TimetableScreen(
+            uiState = TimetableViewModel.TimetableUiState(
+                year = "2026학년도",
+                semester = "2학기",
+                availableTerms = previewAvailableTerms,
+                selectedYear = "2026",
+                selectedSemester = TimetableSemester.SECOND,
+                courses = previewTenCourses
+            ),
+            onRetry = {},
+            onCourseClick = {},
+            onDismissCourseDetail = {},
+            onSelectTerm = { _, _ -> },
+            currentDateTimeOverride = previewCurrentDateTime
+        )
+    }
+}
+
+@Preview(name = "Timetable No Terms", showBackground = true, widthDp = 402)
+@Composable
+private fun TimetableNoTermsPreview() {
+    SoongsilLifeAndroidTheme {
+        TimetableScreen(
+            uiState = TimetableViewModel.TimetableUiState(),
+            onRetry = {},
+            onCourseClick = {},
+            onDismissCourseDetail = {},
             onSelectTerm = { _, _ -> }
+        )
+    }
+}
+
+@Preview(name = "Timetable Term Sheet", showBackground = true, widthDp = 402)
+@Composable
+private fun TimetableTermSelectionBottomSheetPreview() {
+    SoongsilLifeAndroidTheme {
+        TimetableTermSelectionBottomSheet(
+            availableTerms = previewAvailableTerms,
+            selectedTerm = previewAvailableTerms.first(),
+            isLoading = false,
+            errorMessage = null,
+            onTermSelected = {},
+            onRetry = {},
+            onDismiss = {},
+            onApply = {}
         )
     }
 }
