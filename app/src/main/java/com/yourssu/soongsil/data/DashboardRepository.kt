@@ -32,12 +32,30 @@ class DashboardRepository @Inject constructor(
     private val dashboardDataKey = stringPreferencesKey("dashboard_data")
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val chapelDataKey = stringPreferencesKey("chapel_data")
+
     suspend fun getCachedData(): DashboardData? {
         val encodedData = context.dashboardDataStore.data.first()[dashboardDataKey]
             ?: return null
         return runCatching {
             json.decodeFromString<DashboardData>(encodedData)
         }.getOrNull()
+    }
+
+    private suspend fun getCachedChapelData(): DashboardChapelData? {
+        val encodedData = context.dashboardDataStore.data
+            .first()[chapelDataKey]
+            ?: return null
+
+        return runCatching {
+            json.decodeFromString<DashboardChapelData>(encodedData)
+        }.getOrNull()
+    }
+
+    private suspend fun saveChapelData(chapelData: DashboardChapelData) {
+        context.dashboardDataStore.edit { preferences ->
+            preferences[chapelDataKey] = json.encodeToString(chapelData)
+        }
     }
 
     suspend fun clearCachedData(): Result<Unit> = runCatching {
@@ -66,7 +84,7 @@ class DashboardRepository @Inject constructor(
                 Log.d(
                     TAG,
                     "채플 정보 로드 성공 : 좌석 ${it.seatStatusTable.items.size}건, " +
-                        "출석 ${it.attendanceTable.items.size}건"
+                            "출석 ${it.attendanceTable.items.size}건"
                 )
             }
             .onFailure { Log.e(TAG, "채플 정보 로드 실패", it) }
@@ -77,7 +95,7 @@ class DashboardRepository @Inject constructor(
             studentId = studentId,
             overallGpa = grades.calculateOverallGpa(),
             semesterGrades = grades.toDashboardGrades(),
-            chapel = chapel.toDashboardChapel()
+            chapel = chapel.toAvailableChapelData()
         )
 
         context.dashboardDataStore.edit { preferences ->
@@ -87,15 +105,17 @@ class DashboardRepository @Inject constructor(
     }
 
     suspend fun getChapelData(): Result<DashboardChapelData> = runCatching {
-        LmsApi.getChapelTable().toDashboardChapel()
+        LmsApi.getChapelTable().toAvailableChapelData()
     }
-        .onSuccess {
-            Log.d(TAG, "채플 정보 로드 성공")
+        .onSuccess { chapelData ->
+            Log.d(
+                TAG,
+                "채플 정보 로드 성공: 좌석 ${chapelData.seat}"
+            )
         }
         .onFailure {
             Log.e(TAG, "채플 정보 로드 실패", it)
         }
-
     private suspend fun getLoginInfo(): Info = suspendCancellableCoroutine { continuation ->
         LmsApi.getLoginInfo { result ->
             if (!continuation.isActive) return@getLoginInfo
@@ -145,6 +165,39 @@ class DashboardRepository @Inject constructor(
         startsWith("여름") -> "여름"
         startsWith("겨울") -> "겨울"
         else -> removeSuffix("학기")
+    }
+    private suspend fun ChapelInformation.toAvailableChapelData(): DashboardChapelData {
+        val newChapelData = toDashboardChapel()
+
+        val hasNewSeatData = seatStatusTable.items.any {
+            it.seatNo.isNotBlank()
+        }
+
+        if (hasNewSeatData) {
+            saveChapelData(newChapelData)
+
+            Log.d(
+                TAG,
+                "새 채플 좌석 정보를 저장했습니다: ${newChapelData.seat}"
+            )
+
+            return newChapelData
+        }
+
+        val cachedChapelData = getCachedChapelData()
+
+        if (cachedChapelData != null && cachedChapelData.seat.isNotBlank()) {
+            Log.d(
+                TAG,
+                "새 좌석 정보가 없어 기존 채플 정보를 사용합니다: ${cachedChapelData.seat}"
+            )
+
+            return cachedChapelData
+        }
+
+        Log.d(TAG, "새 좌석 정보와 저장된 좌석 정보가 모두 없습니다.")
+
+        return newChapelData
     }
 
     private fun ChapelInformation.toDashboardChapel(): DashboardChapelData {

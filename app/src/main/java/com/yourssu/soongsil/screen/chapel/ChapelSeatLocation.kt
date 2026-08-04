@@ -30,8 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yourssu.soongsil.R
 import com.yourssu.data.dashboard.DashboardChapelData
+import com.yourssu.soongsil.R
 
 @Composable
 fun ChapelSeatLocation(
@@ -64,34 +64,18 @@ fun ChapelSeatLocation(
         .substringBefore(" · ")
         .ifBlank { "한경직기념관" }
 
-    val floorZones = when (floor) {
-        "1층" -> listOf("A", "B", "C", "D", "E")
-        "2층" -> listOf("F", "G", "H", "I", "J")
-        else -> emptyList()
-    }
-
-    val zoneLabels = floorZones.map { label ->
-        label to (label == zone)
-    }
-
     MySeatLocationScreen(
         seatCode = chapelData.seat.ifBlank { "좌석정보 없음" },
         seatFloor = floor,
         seatBuilding = building,
         seatZone = zone,
-
         seatRow = (rowNumber - 1).coerceAtLeast(0),
         seatCol = (columnNumber - 1).coerceAtLeast(0),
-
         helperText = if (chapelData.seat.isBlank()) {
             "배정된 좌석 정보가 없습니다."
         } else {
             "${zone}구역 ${rowNumber}번째 줄 ${columnNumber}번째 자리예요"
         },
-
-        rows = maxOf(12, rowNumber),
-        cols = maxOf(10, columnNumber),
-        zoneLabels = zoneLabels,
         onBackClick = onBackClick,
         onInfoClick = onInfoClick,
     )
@@ -104,25 +88,22 @@ private fun getSeatLocationFloor(zone: String): String {
         else -> ""
     }
 }
-// ─── Data ───
 
 private data class SeatInfo(
-    val code: String,         // "B-12"
-    val floor: String,        // "1층 앞자리"
-    val building: String,     // "한경직기념관"
-    val zone: String,         // "B"
-    val row: Int,             // 2 (0-based)
-    val col: Int,             // 3 (0-based)
-    val helperText: String
+    val code: String,
+    val floor: String,
+    val building: String,
+    val zone: String,
+    val row: Int,
+    val col: Int,
+    val helperText: String,
 )
-
-// ─── Header ───
 
 @Composable
 private fun SeatLocationHeader(
     onBackClick: () -> Unit,
     onInfoClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
@@ -133,44 +114,44 @@ private fun SeatLocationHeader(
                     color = Color(0xFFF1F5F9),
                     start = Offset(0f, size.height),
                     end = Offset(size.width, size.height),
-                    strokeWidth = 1.dp.toPx()
+                    strokeWidth = 1.dp.toPx(),
                 )
             }
             .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_caret_left),
             contentDescription = "뒤로가기",
             modifier = Modifier
                 .size(24.dp)
-                .clickable { onBackClick() },
-            tint = Color(0xFF0F172A)
+                .clickable(onClick = onBackClick),
+            tint = Color(0xFF0F172A),
         )
+
         Text(
             text = "내 좌석 위치",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
+            color = Color(0xFF0F172A),
         )
+
         Icon(
             painter = painterResource(R.drawable.ic_info),
             contentDescription = "정보",
             modifier = Modifier
                 .size(22.dp)
-                .clickable { onInfoClick() },
-            tint = Color(0xFF0F172A)
+                .clickable(onClick = onInfoClick),
+            tint = Color(0xFF0F172A),
         )
     }
 }
 
-// ─── Info Card ───
-
 @Composable
 private fun SeatInfoCard(
     seatInfo: SeatInfo,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
@@ -178,183 +159,427 @@ private fun SeatInfoCard(
             .background(Color.White, RoundedCornerShape(16.dp))
             .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = "내 자리",
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF6B7280)
+            color = Color(0xFF6B7280),
         )
+
         Text(
             text = seatInfo.code,
             fontSize = 32.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF0062FF)
+            color = Color(0xFF0062FF),
         )
+
         Text(
-            text = "${seatInfo.floor} · ${seatInfo.building}",
+            text = listOf(seatInfo.floor, seatInfo.building)
+                .filter { it.isNotBlank() }
+                .joinToString(" · "),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF6B7280)
+            color = Color(0xFF6B7280),
         )
     }
 }
 
-// ─── Seat Grid ───
+private fun getZoneSeatPattern(zone: String): List<String> {
+    return when (zone) {
+        "A" -> listOf(
+            "00011111",
+            "00111111",
+            "01111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "01111111",
+            "",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111100",
+        )
+
+        "B" -> listOf(
+            "0111111",
+            "0111111",
+            "0111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1110000",
+        )
+
+        "C" -> listOf(
+            "00111111100",
+            "01111111110",
+            "01111111110",
+            "01111111110",
+            "01111111110",
+            "11111111111",
+            "11111111111",
+            "",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+            "11111111111",
+        )
+
+        "D" -> listOf(
+            "1111110",
+            "1111110",
+            "1111110",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+        )
+
+        "E" -> listOf(
+            "11111000",
+            "11111100",
+            "11111110",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111110",
+            "",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "01111111",
+            "00011111",
+        )
+
+        "F" -> listOf(
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "",
+            "11100000",
+            "11100000",
+            "11100000",
+            "11111111",
+            "11111111",
+            "11111111",
+            "00111111",
+            "00111110",
+        )
+
+        "G" -> listOf(
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111110",
+            "1111110",
+        )
+
+        "H" -> listOf(
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+            "111111111",
+        )
+
+        "I" -> listOf(
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+            "1111111",
+        )
+
+        "J" -> listOf(
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "",
+            "00000111",
+            "00000111",
+            "00000111",
+            "11111111",
+            "11111111",
+            "11111111",
+            "11111100",
+            "01111100",
+        )
+
+        else -> emptyList()
+    }
+}
 
 @Composable
-private fun SeatGrid(
-    rows: Int,
-    cols: Int,
+private fun ZoneSeatGrid(
+    zone: String,
+    activeZone: String,
     mineRow: Int,
     mineCol: Int,
-    rowAisle: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val seatSize = 13.dp
-    val gap = 4.dp
-    val aisleGap = 12.dp
+    val pattern = getZoneSeatPattern(zone)
+    val maximumColumns = pattern.maxOfOrNull { it.length } ?: 0
+    val seatSize = 5.dp
+    val horizontalGap = 2.dp
+    val rowWidth = (maximumColumns * 7).dp
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(gap)
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        for (r in 0 until rows) {
-            if (r == rowAisle) {
-                Spacer(modifier = Modifier.height(aisleGap - gap))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                for (c in 0 until cols) {
-                    val isMine = r == mineRow && c == mineCol
-                    Box(
-                        modifier = Modifier
+        Text(
+            text = zone,
+            fontSize = 8.sp,
+            fontWeight = if (zone == activeZone) FontWeight.Bold else FontWeight.Medium,
+            color = if (zone == activeZone) Color(0xFF0062FF) else Color(0xFF64748B),
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        var actualSeatRow = 0
+
+        pattern.forEach { rowPattern ->
+            if (rowPattern.isEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+            } else {
+                Row(
+                    modifier = Modifier.width(rowWidth),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    rowPattern.forEachIndexed { column, value ->
+                        val seatModifier = Modifier
+                            .padding(horizontal = (horizontalGap / 2))
                             .size(seatSize)
-                            .background(
-                                when {
-                                    isMine -> Color(0xFF0062FF)
-                                    else -> Color(0xFFE2E8F0)
-                                },
-                                RoundedCornerShape(2.dp)
+
+                        if (value == '1') {
+                            val isMySeat =
+                                zone == activeZone &&
+                                        actualSeatRow == mineRow &&
+                                        column == mineCol
+
+                            Box(
+                                modifier = seatModifier.background(
+                                    color = if (isMySeat) {
+                                        Color(0xFF0062FF)
+                                    } else {
+                                        Color(0xFFE2E8F0)
+                                    },
+                                    shape = RoundedCornerShape(1.dp),
+                                ),
                             )
-                    )
+                        } else {
+                            Spacer(modifier = seatModifier)
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(2.dp))
+                actualSeatRow++
             }
         }
     }
 }
 
-// ─── Map Wrap ───
+@Composable
+private fun ChapelSeatMap(
+    activeZone: String,
+    mineRow: Int,
+    mineCol: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            listOf("A", "B", "C", "D", "E").forEach { zone ->
+                ZoneSeatGrid(
+                    zone = zone,
+                    activeZone = activeZone,
+                    mineRow = mineRow,
+                    mineCol = mineCol,
+                )
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            listOf("F", "G", "H", "I", "J").forEach { zone ->
+                ZoneSeatGrid(
+                    zone = zone,
+                    activeZone = activeZone,
+                    mineRow = mineRow,
+                    mineCol = mineCol,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SeatMapWrap(
     seatInfo: SeatInfo,
-    rows: Int,
-    cols: Int,
-    mineRow: Int,
-    mineCol: Int,
-    rowAisle: Int,
-    zoneLabels: List<Pair<String, Boolean>>,
     pulpitLabel: String,
     calloutText: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(Color(0xFFFAFBFC), RoundedCornerShape(16.dp))
             .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
-            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 20.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 18.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // 설교단
         Box(
             modifier = Modifier
                 .width(240.dp)
                 .height(28.dp)
                 .background(Color(0xFF1F2937), RoundedCornerShape(6.dp)),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = pulpitLabel,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
-                letterSpacing = 2.sp
+                letterSpacing = 2.sp,
             )
         }
 
-        // 구역 라벨
-        Row(
-            modifier = Modifier.width(178.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            zoneLabels.forEach { (label, isActive) ->
-                Text(
-                    text = label,
-                    fontSize = 10.sp,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (isActive) Color(0xFF0062FF) else Color(0xFF94A3B8)
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 좌석 그리드
-        SeatGrid(
-            rows = rows,
-            cols = cols,
-            mineRow = mineRow,
-            mineCol = mineCol,
-            rowAisle = rowAisle
+        ChapelSeatMap(
+            activeZone = seatInfo.zone,
+            mineRow = seatInfo.row,
+            mineCol = seatInfo.col,
         )
 
-        // 콜아웃
+        Spacer(modifier = Modifier.height(12.dp))
+
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_arrow_up),//ic_arrow_up
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = Color(0xFF0062FF)
+            Text(
+                text = "↑",
+                color = Color(0xFF0062FF),
+                fontSize = 18.sp,
             )
-            Spacer(modifier = Modifier.width(6.dp))
+
+            Spacer(modifier = Modifier.width(4.dp))
+
             Text(
                 text = calloutText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0062FF)
+                color = Color(0xFF0062FF),
+                fontWeight = FontWeight.Bold,
             )
         }
     }
 }
 
-// ─── Helper Text ───
-
 @Composable
 private fun HelperText(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Text(
             text = text,
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
             color = Color(0xFF6B7280),
-            lineHeight = (13 * 1.5).sp
+            lineHeight = (13 * 1.5).sp,
         )
     }
 }
-
-// ─── Screen ───
 
 @Composable
 private fun MySeatLocationScreen(
@@ -365,19 +590,11 @@ private fun MySeatLocationScreen(
     seatRow: Int = 2,
     seatCol: Int = 3,
     helperText: String = "입구에서 좌측으로 입장해 앞으로 3번째 줄 네 번째 자리예요",
-    rows: Int = 12,
-    cols: Int = 10,
-    rowAisle: Int = 6,
-    zoneLabels: List<Pair<String, Boolean>> = listOf(
-        "A구역" to false,
-        "B구역" to true,
-        "C구역" to false
-    ),
     pulpitLabel: String = "설교단",
     calloutText: String = "이 자리에요",
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val seatInfo = SeatInfo(
         code = seatCode,
@@ -386,17 +603,17 @@ private fun MySeatLocationScreen(
         zone = seatZone,
         row = seatRow,
         col = seatCol,
-        helperText = helperText
+        helperText = helperText,
     )
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White),
     ) {
         SeatLocationHeader(
             onBackClick = onBackClick,
-            onInfoClick = onInfoClick
+            onInfoClick = onInfoClick,
         )
 
         Column(
@@ -404,45 +621,33 @@ private fun MySeatLocationScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SeatInfoCard(seatInfo = seatInfo)
+
             SeatMapWrap(
                 seatInfo = seatInfo,
-                rows = rows,
-                cols = cols,
-                mineRow = seatInfo.row,
-                mineCol = seatInfo.col,
-                rowAisle = rowAisle,
-                zoneLabels = zoneLabels,
                 pulpitLabel = pulpitLabel,
-                calloutText = calloutText
+                calloutText = calloutText,
             )
+
             HelperText(text = seatInfo.helperText)
         }
     }
 }
 
 @Composable
-@Preview
+@Preview(showBackground = true)
 fun ChapelSeatLocationSamplePreview() {
     MySeatLocationScreen(
-        seatCode = "C-07",
-        seatFloor = "2층 중앙",
+        seatCode = "E-14-4",
+        seatFloor = "1층",
         seatBuilding = "한경직기념관",
-        seatZone = "C",
-        seatRow = 4,
-        seatCol = 6,
-        helperText = "입구에서 우측으로 입장해 5번째 줄 7번째 자리예요",
-        rows = 12,
-        cols = 10,
-        rowAisle = 6,
-        zoneLabels = listOf(
-            "A구역" to false,
-            "B구역" to false,
-            "C구역" to true
-        ),
+        seatZone = "E",
+        seatRow = 13,
+        seatCol = 3,
+        helperText = "E구역 14번째 줄 4번째 자리예요",
         pulpitLabel = "설교단",
-        calloutText = "여기예요"
+        calloutText = "이 자리에요",
     )
 }
