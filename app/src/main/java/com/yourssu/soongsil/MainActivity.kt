@@ -59,6 +59,11 @@ import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.runtime.mutableStateOf
+import com.yourssu.data.dashboard.DashboardChapelData
+import com.yourssu.soongsil.screen.chapel.ChapelSeatLocation
+
+private const val CHAPEL_SEAT_LOCATION_ROUTE = "chapelSeatLocation"
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -67,6 +72,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val navController = rememberNavController()
+            var selectedChapelData by remember {
+                mutableStateOf<DashboardChapelData?>(null)
+            }
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
             ) {
@@ -75,7 +83,10 @@ class MainActivity : ComponentActivity() {
                     .value
                     ?.destination
                     ?.route
-                val showBottomBar = currentRoute != null && currentRoute != Login::class.qualifiedName
+                val showBottomBar =
+                    currentRoute != null &&
+                            currentRoute != Login::class.qualifiedName &&
+                            currentRoute != CHAPEL_SEAT_LOCATION_ROUTE
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
@@ -213,9 +224,26 @@ class MainActivity : ComponentActivity() {
                         composable<Scholarship> {
                             // TODO: Implement MyPageScreen
                         }
-                        composable<Chapel> {
-                            ChapelScreen()
-                        }
+                            composable<Chapel> {
+                                ChapelScreen(
+                                    onSeatLocationClick = { chapelData ->
+                                        selectedChapelData = chapelData
+                                        navController.navigate(CHAPEL_SEAT_LOCATION_ROUTE)
+                                    },
+                                )
+                            }
+                            composable(CHAPEL_SEAT_LOCATION_ROUTE) {
+                                val chapelData = selectedChapelData
+
+                                if (chapelData != null) {
+                                    ChapelSeatLocation(
+                                        chapelData = chapelData,
+                                        onBackClick = {
+                                            navController.popBackStack()
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
 

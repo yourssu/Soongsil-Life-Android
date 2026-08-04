@@ -38,6 +38,7 @@ import com.yourssu.data.dashboard.DashboardChapelData
 
 @Composable
 fun ChapelScreen(
+    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChapelViewModel = hiltViewModel(),
 ) {
@@ -46,6 +47,7 @@ fun ChapelScreen(
     ChapelScreenContent(
         uiState = uiState,
         onRetryClick = viewModel::retry,
+        onSeatLocationClick = onSeatLocationClick,
         modifier = modifier,
     )
 }
@@ -54,6 +56,7 @@ fun ChapelScreen(
 private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
+    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -72,6 +75,7 @@ private fun ChapelScreenContent(
         uiState.chapelData != null -> {
             ChapelSuccessScreen(
                 chapelData = uiState.chapelData,
+                onSeatLocationClick = onSeatLocationClick,
                 modifier = modifier,
             )
         }
@@ -89,6 +93,7 @@ private fun ChapelScreenContent(
 @Composable
 private fun ChapelSuccessScreen(
     chapelData: DashboardChapelData,
+    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val seatZoneCode = chapelData.seat
@@ -113,6 +118,9 @@ private fun ChapelSuccessScreen(
         absent = chapelData.absent,
         remaining = chapelData.remaining,
         progress = chapelData.progress,
+        onViewSeatClick = {
+            onSeatLocationClick(chapelData)
+        },
         modifier = modifier,
     )
 }

@@ -31,13 +31,79 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.R
+import com.yourssu.data.dashboard.DashboardChapelData
 
 @Composable
-@Preview
-fun ChapelSeatLocation(){
-    MySeatLocationScreen()
+fun ChapelSeatLocation(
+    chapelData: DashboardChapelData,
+    onBackClick: () -> Unit,
+    onInfoClick: () -> Unit = {},
+) {
+    val seatParts = chapelData.seat
+        .split("-")
+        .map { it.trim() }
+
+    val zone = seatParts
+        .getOrNull(0)
+        ?.uppercase()
+        .orEmpty()
+
+    val rowNumber = seatParts
+        .getOrNull(1)
+        ?.toIntOrNull()
+        ?: 1
+
+    val columnNumber = seatParts
+        .getOrNull(2)
+        ?.toIntOrNull()
+        ?: 1
+
+    val floor = getSeatLocationFloor(zone)
+
+    val building = chapelData.seatDescription
+        .substringBefore(" · ")
+        .ifBlank { "한경직기념관" }
+
+    val floorZones = when (floor) {
+        "1층" -> listOf("A", "B", "C", "D", "E")
+        "2층" -> listOf("F", "G", "H", "I", "J")
+        else -> emptyList()
+    }
+
+    val zoneLabels = floorZones.map { label ->
+        label to (label == zone)
+    }
+
+    MySeatLocationScreen(
+        seatCode = chapelData.seat.ifBlank { "좌석정보 없음" },
+        seatFloor = floor,
+        seatBuilding = building,
+        seatZone = zone,
+
+        seatRow = (rowNumber - 1).coerceAtLeast(0),
+        seatCol = (columnNumber - 1).coerceAtLeast(0),
+
+        helperText = if (chapelData.seat.isBlank()) {
+            "배정된 좌석 정보가 없습니다."
+        } else {
+            "${zone}구역 ${rowNumber}번째 줄 ${columnNumber}번째 자리예요"
+        },
+
+        rows = maxOf(12, rowNumber),
+        cols = maxOf(10, columnNumber),
+        zoneLabels = zoneLabels,
+        onBackClick = onBackClick,
+        onInfoClick = onInfoClick,
+    )
 }
 
+private fun getSeatLocationFloor(zone: String): String {
+    return when (zone.trim().uppercase()) {
+        "A", "B", "C", "D", "E" -> "1층"
+        "F", "G", "H", "I", "J" -> "2층"
+        else -> ""
+    }
+}
 // ─── Data ───
 
 private data class SeatInfo(
