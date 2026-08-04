@@ -13,6 +13,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.ExperimentalTime
@@ -26,15 +27,10 @@ data class GradeUiData(
 )
 
 data class GradeUiState(
+    val gradeData: GradeUiData = GradeUiData(),
     val semesters: List<SemesterTab> = emptyList(),
     val selectedSemesterIndex: Int = 0,
-    val courses: List<CourseItem> = emptyList(),
     val gpaPoints: List<GpaPoint> = emptyList(),
-    val gpa: String = "-",
-    val maxGpa: String = "4.5",
-    val credits: String = "-",
-    val courseCount: String = "-",
-    val rank: String = "-",
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -47,6 +43,10 @@ class GradeViewModel @Inject constructor() : ViewModel() {
     private val summaryRankCache = mutableMapOf<String, String>()
     private val gradeCache = mutableMapOf<String, GradeUiData>()
 
+    init {
+        getTerms()
+    }
+
     @OptIn(ExperimentalTime::class)
     fun getTerms() {
         if(_uiState.value.semesters.isNotEmpty()) return
@@ -56,16 +56,18 @@ class GradeViewModel @Inject constructor() : ViewModel() {
                 .mapNotNull { it.name?.toSemesterTab() }
                 .mapIndexed { index, tab -> tab.copy(isActive = index == 0) }
 
-            _uiState.value = _uiState.value.copy(
-                semesters = semesters,
-                selectedSemesterIndex = 0
-            )
-
+            _uiState.update {
+                it.copy(
+                    semesters = semesters,
+                    selectedSemesterIndex = 0
+                )
+            }
             val latestSemester = semesters.firstOrNull() ?: return@getTerms
             viewModelScope.launch {
                 loadSummaryGpa()
                 loadGrade(latestSemester, applyToUi = true)
-                semesters.drop(1).forEach { loadGrade(it, applyToUi = false) }
+                semesters.drop(1).forEach {
+                    loadGrade(it, applyToUi = false) }
             }
         }
     }
@@ -74,12 +76,14 @@ class GradeViewModel @Inject constructor() : ViewModel() {
     fun selectSemester(selectedIndex: Int) {
         val selectedTab = _uiState.value.semesters.getOrNull(selectedIndex) ?: return
 
-        _uiState.value = _uiState.value.copy(
-            selectedSemesterIndex = selectedIndex,
-            semesters = _uiState.value.semesters.mapIndexed { index, tab ->
-                tab.copy(isActive = index == selectedIndex)
-            }
-        )
+        _uiState.update {
+            it.copy(
+                selectedSemesterIndex = selectedIndex,
+                semesters = _uiState.value.semesters.mapIndexed { index, tab ->
+                    tab.copy(isActive = index == selectedIndex)
+                }
+            )
+        }
 
         viewModelScope.launch {
             loadGrade(selectedTab, applyToUi = true)
@@ -174,11 +178,7 @@ class GradeViewModel @Inject constructor() : ViewModel() {
 
     private fun updateGradeData(data: GradeUiData) {
         _uiState.value = _uiState.value.copy(
-            courses = data.courses,
-            gpa = data.gpa,
-            credits = data.credits,
-            courseCount = data.courseCount,
-            rank = data.rank,
+            gradeData = data,
             isLoading = false,
             errorMessage = null
         )
@@ -196,28 +196,45 @@ class GradeViewModel @Inject constructor() : ViewModel() {
         else -> removeSuffix("학기")
     }
 
+    private fun String.toSemesterTab(): SemesterTab? {
+        Regex("""(\d{4})(?:년|-)\s*([12])학기""").find(this)?.let { match ->
+            val year = match.groupValues[1]
+            val semester = when (match.groupValues[2]) {
+                "1" -> Semester.FIRST
+                "2" -> Semester.SECOND
+                else -> return null
+            }
+
+            return SemesterTab(
+                label = buildSemesterLabel(
+                    year = year,
+                    semester = semester.nameKor
+                ),
+                year = year,
+                semester = semester
+            )
+        }
+
+        Regex("""(\d{4})-(하계|동계)계절제""").find(this)?.let { match ->
+            val year = match.groupValues[1]
+            val semester = when (match.groupValues[2]) {
+                "하계" -> Semester.SUMMER
+                "동계" -> Semester.WINTER
+                else -> return null
+            }
+            return SemesterTab(
+                label = buildSemesterLabel(
+                    year = year,
+                    semester = semester.nameKor
+                ),
+                year = year,
+                semester = semester
+            )
+        }
+
+        return null
+    }
 
 }
 
-private fun String.toSemesterTab(): SemesterTab? {
-    Regex("""(\d{4})(?:년|-)\s*([12])학기""").find(this)?.let { match ->
-        val semester = when (match.groupValues[2]) {
-            "1" -> Semester.FIRST
-            "2" -> Semester.SECOND
-            else -> return null
-        }
-        return SemesterTab(label = this, year = match.groupValues[1], semester = semester)
-    }
-
-    Regex("""(\d{4})-(하계|동계)계절제""").find(this)?.let { match ->
-        val semester = when (match.groupValues[2]) {
-            "하계" -> Semester.SUMMER
-            "동계" -> Semester.WINTER
-            else -> return null
-        }
-        return SemesterTab(label = this, year = match.groupValues[1], semester = semester)
-    }
-
-    return null
-}
 

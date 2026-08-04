@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,17 +34,14 @@ fun previewGradeDetailScreen(){
 @Composable
 fun GradeDetailScreen(
     onBackClick: () -> Unit = {},
-    maxGpa: String = "4.5",
     modifier: Modifier = Modifier,
     viewModel: GradeViewModel = hiltViewModel()
 ) {
+    val maxGpa = "4.5"
     val bottomBarPadding = LocalMainBottomBarPadding.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.getTerms()
-    }
-
+    val gradeData = uiState.gradeData
+    var includeSeasonSemester by rememberSaveable { mutableStateOf(true) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -50,10 +49,9 @@ fun GradeDetailScreen(
     ) {
         GradeDetailHeader(onBackClick = onBackClick)
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(
                     start = 20.dp,
                     end = 20.dp,
@@ -62,24 +60,37 @@ fun GradeDetailScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SemesterTabs(
-                tabs = uiState.semesters,
-                onTabClick = { index ->
-                    viewModel.selectSemester(index)
-                }
-            )
+            item {
+                SemesterTabs(
+                    tabs = uiState.semesters,
+                    onTabClick = { index ->
+                        viewModel.selectSemester(index)
+                    }
+                )
+            }
 
-            GpaDetailCard(
-                gpa = uiState.gpa,
-                maxGpa = maxGpa,
-                credits = uiState.credits,
-                courseCount = uiState.courseCount,
-                rank = uiState.rank
-            )
+            item {
+                GpaDetailCard(
+                    gpa = gradeData.gpa,
+                    maxGpa = maxGpa,
+                    credits = gradeData.credits,
+                    courseCount = gradeData.courseCount,
+                    rank = gradeData.rank
+                )
+            }
 
-            GpaTrendChart(points = uiState.gpaPoints)
+            item {
+                GpaTrendChart(
+                    points = if(includeSeasonSemester) uiState.gpaPoints
+                    else uiState.gpaPoints.filter {
+                        !(it.semester.contains("여름") || it.semester.contains("겨울"))
+                    },
+                    includeSeasonSemester = includeSeasonSemester,
+                    onIncludeSeasonSemesterChange = { includeSeasonSemester = it }
+                )
+            }
 
-            uiState.courses.forEach { course ->
+            items(gradeData.courses) { course ->
                 CourseDetailCard(course = course)
             }
         }
