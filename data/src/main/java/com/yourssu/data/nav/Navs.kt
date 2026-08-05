@@ -12,6 +12,12 @@ object Scholarship // 등록금/장학금 탭
 object Login// 로그인
 
 @Serializable
+object OnBoardingTerms // 약관 동의 온보딩
+
+@Serializable
+object OnBoardingComplete // 온보딩 완료
+
+@Serializable
 object Grade // 성적 탭
 
 @Serializable
