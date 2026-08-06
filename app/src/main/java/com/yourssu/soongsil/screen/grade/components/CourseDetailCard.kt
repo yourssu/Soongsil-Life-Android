@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.screen.grade.model.CourseItem
 import com.yourssu.soongsil.screen.grade.model.badgeBgColor
-import com.yourssu.soongsil.screen.grade.model.dodColor
+import com.yourssu.soongsil.screen.grade.model.dotColor
 import com.yourssu.soongsil.screen.grade.model.gradeColor
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
@@ -50,7 +50,7 @@ fun CourseDetailCard(
                 .align(Alignment.Top)
                 .padding(top = 6.dp)
                 .size(8.dp)
-                .background(course.dodColor(isSystemInDarkTheme()), CircleShape)
+                .background(course.dotColor(isSystemInDarkTheme()), CircleShape)
         )
 
         Column(

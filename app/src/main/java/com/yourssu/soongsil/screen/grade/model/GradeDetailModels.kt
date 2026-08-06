@@ -40,4 +40,4 @@ fun CourseItem.gradeColor(isDarkMode: Boolean): Color {
     else gradeColor
 }
 
-fun CourseItem.dodColor(isDarkMode: Boolean): Color = gradeColor(isDarkMode)
+fun CourseItem.dotColor(isDarkMode: Boolean): Color = gradeColor(isDarkMode)
