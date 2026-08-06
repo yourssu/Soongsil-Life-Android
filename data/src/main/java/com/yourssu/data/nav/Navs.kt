@@ -31,3 +31,6 @@ object MyPage // 마이페이지 탭
 
 @Serializable
 object Keep // 수강신청 장바구니
+
+@Serializable
+object CourseCatalog // 강의시간표 조회

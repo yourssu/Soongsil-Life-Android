@@ -36,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
 import com.yourssu.data.nav.Chapel
+import com.yourssu.data.nav.CourseCatalog
 import com.yourssu.data.nav.Dashboard
 import com.yourssu.data.nav.Grade
 import com.yourssu.data.nav.Graduate
@@ -46,6 +47,8 @@ import com.yourssu.data.nav.PushNotifications
 import com.yourssu.data.nav.Scholarship
 import com.yourssu.data.nav.Timetable
 import com.yourssu.soongsil.screen.chapel.ChapelScreen
+import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogScreen
+import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogViewModel
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
@@ -87,7 +90,8 @@ class MainActivity : ComponentActivity() {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
                     currentRoute == MyPage::class.qualifiedName ||
-                        currentRoute == Keep::class.qualifiedName -> MainTab.MY_PAGE
+                        currentRoute == Keep::class.qualifiedName ||
+                        currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
                     else -> MainTab.HOME
                 }
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
@@ -210,7 +214,8 @@ class MainActivity : ComponentActivity() {
                                 gradeNotificationEnabled = gradeNotificationEnabled,
                                 onGradeNotificationToggle = viewModel::setGradeNotificationEnabled,
                                 onLogoutClick = viewModel::logout,
-                                onKeepClick = { navController.navigate(Keep) }
+                                onKeepClick = { navController.navigate(Keep) },
+                                onCourseCatalogClick = { navController.navigate(CourseCatalog) }
                             )
                         }
                         composable<Keep> {
@@ -241,6 +246,47 @@ class MainActivity : ComponentActivity() {
                                     onBackClick = { navController.popBackStack() },
                                     onRefresh = viewModel::refresh,
                                     onRetryClick = viewModel::retry,
+                                    onPlanClick = viewModel::loadPlan
+                                )
+                            }
+
+                            if (planState.isLoading) {
+                                PlanLoadingDialog(
+                                    title = planState.loadingTitle,
+                                    onCancel = viewModel::cancelPlanLoading
+                                )
+                            }
+                            planState.errorMessage?.let { message ->
+                                PlanErrorDialog(
+                                    message = message,
+                                    onDismiss = viewModel::dismissPlanError
+                                )
+                            }
+                        }
+                        composable<CourseCatalog> {
+                            val viewModel: CourseCatalogViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+                            val planState = uiState.planPdfState
+                            val pdf = planState.pdf
+
+                            if (pdf != null) {
+                                PlanPdfScreen(
+                                    title = pdf.title,
+                                    pdfBytes = pdf.bytes,
+                                    onBackClick = viewModel::closePlan
+                                )
+                            } else {
+                                CourseCatalogScreen(
+                                    uiState = uiState,
+                                    onBackClick = { navController.popBackStack() },
+                                    onYearChange = viewModel::setYear,
+                                    onSemesterChange = viewModel::setSemester,
+                                    onCategoryChange = viewModel::setCategory,
+                                    onFilterSelect = viewModel::selectFilter,
+                                    onKeywordChange = viewModel::setKeyword,
+                                    onSearchClick = viewModel::search,
+                                    onRetryOptions = viewModel::retrySearchOptions,
+                                    onRefresh = viewModel::refresh,
                                     onPlanClick = viewModel::loadPlan
                                 )
                             }

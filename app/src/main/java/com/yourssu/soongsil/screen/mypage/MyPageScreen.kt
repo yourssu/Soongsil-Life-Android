@@ -38,6 +38,7 @@ fun MyPageScreen(
     onGradeNotificationToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onKeepClick: () -> Unit = {},
+    onCourseCatalogClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyPolicyClick: () -> Unit = {},
     versionName: String = BuildConfig.VERSION_NAME,
@@ -82,6 +83,10 @@ fun MyPageScreen(
                 MyPageMenuItem(
                     text = "수강신청 장바구니 조회",
                     onClick = onKeepClick
+                )
+                MyPageMenuItem(
+                    text = "강의시간표 조회",
+                    onClick = onCourseCatalogClick
                 )
             }
 
