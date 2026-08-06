@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
+// 선택된 학기의 평점 요약 카드를 표시합니다.
 @Composable
 fun GpaDetailCard(
     gpa: String,
@@ -30,7 +32,7 @@ fun GpaDetailCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF0A0A0A), RoundedCornerShape(20.dp))
+            .background(SoongsilPalette.Black, RoundedCornerShape(20.dp))
             .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

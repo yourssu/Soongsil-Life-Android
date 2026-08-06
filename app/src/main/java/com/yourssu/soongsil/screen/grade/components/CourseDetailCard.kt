@@ -1,7 +1,9 @@
 package com.yourssu.soongsil.screen.grade.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,17 +24,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.screen.grade.model.CourseItem
+import com.yourssu.soongsil.screen.grade.model.badgeBgColor
+import com.yourssu.soongsil.screen.grade.model.dodColor
+import com.yourssu.soongsil.screen.grade.model.gradeColor
 
+// 과목별 상세 성적 카드를 표시합니다.
 @Composable
 fun CourseDetailCard(
     course: CourseItem,
     modifier: Modifier = Modifier
 ) {
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f) , RoundedCornerShape(16.dp))
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -42,7 +50,7 @@ fun CourseDetailCard(
                 .align(Alignment.Top)
                 .padding(top = 6.dp)
                 .size(8.dp)
-                .background(course.dotColor, CircleShape)
+                .background(course.dodColor(isSystemInDarkTheme()), CircleShape)
         )
 
         Column(
@@ -52,12 +60,13 @@ fun CourseDetailCard(
         ) {
             Text(
                 text = course.name,
+                modifier = Modifier
+                    .basicMarquee(),
                 fontSize = 15.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF191f28),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -67,22 +76,24 @@ fun CourseDetailCard(
                     text = course.credit,
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
-                    color = Color(0xFFB0B8C1),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     maxLines = 1
                 )
                 Text(
                     text = course.professor,
+                    modifier = Modifier
+                        .weight(1f)
+                        .basicMarquee(),
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
-                    color = Color(0xFF8B95A1),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
         }
         Box(
             modifier = Modifier
-                .background(course.badgeBgColor, RoundedCornerShape(8.dp))
+                .background(course.badgeBgColor(isSystemInDarkTheme()), RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -90,7 +101,7 @@ fun CourseDetailCard(
                 text = course.grade,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = course.gradeColor
+                color = course.gradeColor(isSystemInDarkTheme())
             )
         }
     }

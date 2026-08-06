@@ -16,12 +16,28 @@ data class GpaPoint(
     val isCurrent: Boolean = false
 )
 
+val GpaPoint.shortSemesterName
+    get() = semester.substring(2)
+
 data class CourseItem(
     val name: String,
     val professor: String,
     val credit: String,
     val grade: String,
-    val dotColor: Color,
     val gradeColor: Color,
-    val badgeBgColor: Color
+    val gradeDarkColor: Color,
+    val badgeBgColor: Color,
+    val badgeBgDarkColor: Color
 )
+
+fun CourseItem.badgeBgColor(isDarkMode: Boolean): Color {
+    return if (isDarkMode) badgeBgDarkColor
+    else badgeBgColor
+}
+
+fun CourseItem.gradeColor(isDarkMode: Boolean): Color {
+    return if (isDarkMode) gradeDarkColor
+    else gradeColor
+}
+
+fun CourseItem.dodColor(isDarkMode: Boolean): Color = gradeColor(isDarkMode)
