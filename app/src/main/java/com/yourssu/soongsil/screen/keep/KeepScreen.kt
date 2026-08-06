@@ -1,8 +1,6 @@
 package com.yourssu.soongsil.screen.keep
 
 import android.content.res.Configuration
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,7 +20,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,11 +33,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.keep.KeepCourse
 import com.yourssu.data.keep.KeepData
+import com.yourssu.soongsil.ui.components.CourseDetailBottomSheet
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
@@ -58,9 +55,11 @@ fun KeepScreen(
     onBackClick: () -> Unit,
     onRefresh: () -> Unit,
     onRetryClick: () -> Unit,
+    onPlanClick: (KeepCourse) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
+    var selectedCourse by remember { mutableStateOf<KeepCourse?>(null) }
 
     Column(
         modifier = modifier
@@ -81,6 +80,7 @@ fun KeepScreen(
                     data = uiState.data,
                     errorMessage = uiState.errorMessage,
                     onRetryClick = onRetryClick,
+                    onCourseClick = { selectedCourse = it },
                     bottomPadding = bottomBarPadding
                 )
 
@@ -100,6 +100,22 @@ fun KeepScreen(
                 )
             }
         }
+    }
+
+    selectedCourse?.let { course ->
+        CourseDetailBottomSheet(
+            subjectName = course.subjectName,
+            classification = course.classification,
+            professor = course.professor,
+            countLabel = "담은 인원",
+            count = course.savedStudentCount,
+            details = course.toDetailItems(),
+            onDismissRequest = { selectedCourse = null },
+            onPlanClick = {
+                selectedCourse = null
+                onPlanClick(course)
+            }
+        )
     }
 }
 
@@ -142,6 +158,7 @@ private fun KeepDataContent(
     data: KeepData,
     errorMessage: String?,
     onRetryClick: () -> Unit,
+    onCourseClick: (KeepCourse) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier
 ) {
@@ -152,18 +169,21 @@ private fun KeepDataContent(
             end = 20.dp,
             top = 16.dp,
             bottom = 20.dp + bottomPadding
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        )
     ) {
         item {
-            KeepOverviewCard(data = data)
+            KeepOverviewCard(
+                data = data,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
         }
 
         if (errorMessage != null) {
             item {
                 KeepErrorCard(
                     errorMessage = errorMessage,
-                    onRetryClick = onRetryClick
+                    onRetryClick = onRetryClick,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
         }
@@ -171,7 +191,7 @@ private fun KeepDataContent(
         item {
             Text(
                 text = "담은 과목",
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                 color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
@@ -186,8 +206,16 @@ private fun KeepDataContent(
             itemsIndexed(
                 items = data.courses,
                 key = { index, course -> "${course.subjectCode}-${course.section}-$index" }
-            ) { _, course ->
-                KeepCourseCard(course = course)
+            ) { index, course ->
+                Column {
+                    KeepCourseListItem(
+                        course = course,
+                        onClick = { onCourseClick(course) }
+                    )
+                    if (index < data.courses.lastIndex) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    }
+                }
             }
         }
     }
@@ -207,8 +235,7 @@ private fun KeepOverviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
             Text(
                 text = periodInfo.semester,
@@ -216,7 +243,10 @@ private fun KeepOverviewCard(
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(
+                modifier = Modifier.padding(top = 8.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
                     text = "신청 기간",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -231,22 +261,25 @@ private fun KeepOverviewCard(
                 )
             }
             KeepInfoRow(label = "예약 상태", value = data.reservationStatus.orDash())
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 10.dp, bottom = 18.dp),
+                color = MaterialTheme.colorScheme.outline
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                KeepSummaryItem(
+                KeepSummaryColumn(
                     label = "총 과목",
                     value = data.totalCourseCount.orDash(),
                     modifier = Modifier.weight(1f)
                 )
-                KeepSummaryItem(
+                KeepSummaryColumn(
                     label = "총 학점",
                     value = data.totalCredits.orDash(),
                     modifier = Modifier.weight(1f)
                 )
-                KeepSummaryItem(
+                KeepSummaryColumn(
                     label = "신청 가능 학점",
                     value = data.availableCredits.orDash(),
                     modifier = Modifier.weight(1f)
@@ -257,20 +290,15 @@ private fun KeepOverviewCard(
 }
 
 @Composable
-private fun KeepSummaryItem(
+private fun KeepSummaryColumn(
     label: String,
     value: String,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
             text = value,
@@ -291,155 +319,85 @@ private fun KeepSummaryItem(
 }
 
 @Composable
-private fun KeepCourseCard(
+private fun KeepCourseListItem(
     course: KeepCourse,
-    modifier: Modifier = Modifier,
-    initiallyExpanded: Boolean = false
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var isExpanded by rememberSaveable(course.subjectCode, course.section) {
-        mutableStateOf(initiallyExpanded)
-    }
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (isExpanded) 180f else 0f,
-        label = "상세 정보 화살표"
-    )
-    val details = listOf(
-        "계획" to course.plan,
-        "다전공 이수구분" to course.multiMajorClassification,
-        "공학인증" to course.engineeringCertification,
-        "교과영역" to course.curriculumArea,
-        "과목번호" to course.subjectCode,
-        "분반" to course.section,
-        "신청일시" to course.applicationDate,
-        "비고" to course.note
-    )
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 9.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "우선순위",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = course.priority.toPriorityText(),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = course.subjectName.orDash(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = listOf(course.classification, course.professor)
-                            .filter(String::isNotBlank)
-                            .joinToString(" · ")
-                            .orDash(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = course.savedStudentCount.orDash(),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "담은 인원",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 14.dp),
-                color = MaterialTheme.colorScheme.outline
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "우선순위",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
             )
-            KeepInfoRow(label = "수업시간", value = course.schedule.orDash())
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 10.dp),
-                color = MaterialTheme.colorScheme.outline
+            Text(
+                text = course.priority.toPriorityText(),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
             )
-            KeepInfoRow(label = "시간 / 학점", value = course.hoursCredits.orDash())
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(top = 14.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isExpanded) "상세 정보 접기" else "상세 정보 보기",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (isExpanded) "상세 정보 접기" else "상세 정보 펼치기",
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .size(20.dp)
-                        .rotate(arrowRotation),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            AnimatedVisibility(visible = isExpanded) {
-                Column {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(top = 14.dp, bottom = 10.dp),
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    details.forEachIndexed { index, (label, value) ->
-                        if (index > 0) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                        KeepInfoRow(label = label, value = value.orDash())
-                    }
-                }
-            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = course.subjectName.orDash(),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = listOf(course.classification, course.professor)
+                    .filter(String::isNotBlank)
+                    .joinToString(" · ")
+                    .orDash(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = course.savedStudentCount.orDash(),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "담은 인원",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
         }
     }
 }
+
+private fun KeepCourse.toDetailItems(): List<Pair<String, String>> = listOf(
+    "우선순위" to priority.toPriorityText(),
+    "수업시간" to schedule,
+    "시간 / 학점" to hoursCredits,
+    "강의계획서 정보" to plan,
+    "다전공 이수구분" to multiMajorClassification,
+    "공학인증" to engineeringCertification,
+    "교과영역" to curriculumArea,
+    "과목번호" to subjectCode,
+    "분반" to section,
+    "신청일시" to applicationDate,
+    "비고" to note
+)
 
 @Composable
 private fun KeepInfoRow(
@@ -636,32 +594,33 @@ private fun KeepScreenContentPreview() {
             uiState = KeepUiState(data = previewKeepData, isLoading = false),
             onBackClick = {},
             onRefresh = {},
-            onRetryClick = {}
+            onRetryClick = {},
+            onPlanClick = {}
         )
     }
 }
 
-@Preview(name = "과목 상세 펼침 - 라이트", showBackground = true, heightDp = 800)
+@Preview(name = "과목 상세 바텀시트 - 라이트", showBackground = true, heightDp = 800)
 @Preview(
-    name = "과목 상세 펼침 - 다크",
+    name = "과목 상세 바텀시트 - 다크",
     showBackground = true,
     heightDp = 800,
     uiMode = Configuration.UI_MODE_NIGHT_YES
 )
 @Composable
-private fun KeepCourseCardExpandedPreview() {
+private fun KeepCourseBottomSheetPreview() {
     SoongsilLifeAndroidTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(20.dp)
-        ) {
-            KeepCourseCard(
-                course = previewKeepData.courses.first(),
-                initiallyExpanded = true
-            )
-        }
+        val course = previewKeepData.courses.first()
+        CourseDetailBottomSheet(
+            subjectName = course.subjectName,
+            classification = course.classification,
+            professor = course.professor,
+            countLabel = "담은 인원",
+            count = course.savedStudentCount,
+            details = course.toDetailItems(),
+            onDismissRequest = {},
+            onPlanClick = {}
+        )
     }
 }
 
@@ -686,7 +645,8 @@ private fun KeepScreenEmptyPreview() {
             ),
             onBackClick = {},
             onRefresh = {},
-            onRetryClick = {}
+            onRetryClick = {},
+            onPlanClick = {}
         )
     }
 }
@@ -708,7 +668,8 @@ private fun KeepScreenErrorPreview() {
             ),
             onBackClick = {},
             onRefresh = {},
-            onRetryClick = {}
+            onRetryClick = {},
+            onPlanClick = {}
         )
     }
 }
@@ -727,7 +688,8 @@ private fun KeepScreenLoadingPreview() {
             uiState = KeepUiState(),
             onBackClick = {},
             onRefresh = {},
-            onRetryClick = {}
+            onRetryClick = {},
+            onPlanClick = {}
         )
     }
 }

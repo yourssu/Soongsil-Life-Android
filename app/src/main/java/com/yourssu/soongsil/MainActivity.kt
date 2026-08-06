@@ -55,6 +55,9 @@ import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
 import com.yourssu.soongsil.screen.mypage.MyPageViewModel
+import com.yourssu.soongsil.screen.plan.PlanErrorDialog
+import com.yourssu.soongsil.screen.plan.PlanLoadingDialog
+import com.yourssu.soongsil.screen.plan.PlanPdfScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
@@ -224,12 +227,36 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            KeepScreen(
-                                uiState = uiState,
-                                onBackClick = { navController.popBackStack() },
-                                onRefresh = viewModel::refresh,
-                                onRetryClick = viewModel::retry
-                            )
+                            val planState = uiState.planPdfState
+                            val pdf = planState.pdf
+                            if (pdf != null) {
+                                PlanPdfScreen(
+                                    title = pdf.title,
+                                    pdfBytes = pdf.bytes,
+                                    onBackClick = viewModel::closePlan
+                                )
+                            } else {
+                                KeepScreen(
+                                    uiState = uiState,
+                                    onBackClick = { navController.popBackStack() },
+                                    onRefresh = viewModel::refresh,
+                                    onRetryClick = viewModel::retry,
+                                    onPlanClick = viewModel::loadPlan
+                                )
+                            }
+
+                            if (planState.isLoading) {
+                                PlanLoadingDialog(
+                                    title = planState.loadingTitle,
+                                    onCancel = viewModel::cancelPlanLoading
+                                )
+                            }
+                            planState.errorMessage?.let { message ->
+                                PlanErrorDialog(
+                                    message = message,
+                                    onDismiss = viewModel::dismissPlanError
+                                )
+                            }
                         }
                         composable<Timetable> {
                             TimetableScreen()

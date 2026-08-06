@@ -43,6 +43,10 @@ class KeepRepository @Inject constructor(
         context.keepDataStore.edit { it.clear() }
     }
 
+    suspend fun loadPlan(course: KeepCourse): Result<ByteArray> = runCatching {
+        course.toPreRegistrationCourse().loadPlan()
+    }
+
     private fun PreRegistrationTable.toKeepData(): KeepData = KeepData(
         period = period,
         reservationStatus = reservationStatus,
@@ -69,4 +73,23 @@ class KeepRepository @Inject constructor(
         note = note,
         savedStudentCount = savedStudentCount
     )
+
+    private fun KeepCourse.toPreRegistrationCourse(): PreRegistrationCourse =
+        PreRegistrationCourse(
+            priority = priority,
+            plan = plan,
+            classification = classification,
+            multiMajorClassification = multiMajorClassification,
+            engineeringCertification = engineeringCertification,
+            curriculumArea = curriculumArea,
+            subjectCode = subjectCode,
+            subjectName = subjectName,
+            section = section,
+            professor = professor,
+            hoursCredits = hoursCredits,
+            schedule = schedule,
+            applicationDate = applicationDate,
+            note = note,
+            savedStudentCount = savedStudentCount
+        )
 }
