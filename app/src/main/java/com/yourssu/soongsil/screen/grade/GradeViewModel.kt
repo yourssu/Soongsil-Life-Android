@@ -325,9 +325,6 @@ class GradeViewModel @Inject constructor(
         return "${year}학년도 $semester 성적 정보를 불러오는 중"
     }
 
-    private val GradeSemester.cacheKey: String
-        get() = label
-
     private companion object {
         const val REFRESH_SUCCESS_DURATION_MILLIS = 750L
     }

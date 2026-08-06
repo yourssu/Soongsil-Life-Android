@@ -1,6 +1,7 @@
 package com.yourssu.soongsil.screen.grade.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -32,7 +33,7 @@ fun GpaDetailCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(SoongsilPalette.Black, RoundedCornerShape(20.dp))
+            .background(if(isSystemInDarkTheme()) SoongsilPalette.Black else SoongsilPalette.Gray950, RoundedCornerShape(20.dp))
             .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

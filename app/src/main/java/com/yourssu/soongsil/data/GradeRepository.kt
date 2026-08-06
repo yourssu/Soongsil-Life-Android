@@ -9,6 +9,7 @@ import com.yourssu.data.grade.GradeData
 import com.yourssu.data.grade.GradeSemester
 import com.yourssu.data.grade.GradeSemesterData
 import com.yourssu.data.grade.GradeSemesterSummary
+import com.yourssu.data.grade.SemesterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.LmsTermsResult
@@ -31,7 +32,10 @@ class GradeRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val gradeDataKey = stringPreferencesKey(name = "grade_data")
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        allowStructuredMapKeys = true
+    }
 
     // 캐시에 저장된 성적 데이터를 불러옵니다.
     suspend fun getCachedData(): GradeData? {
@@ -60,8 +64,12 @@ class GradeRepository @Inject constructor(
     suspend fun refreshGradeOverview(): Result<GradeData> = runCatching {
         val terms = getTerms()
         val semesters = terms.terms
-            .mapNotNull { it.name?.parseGradeSemester() }
-            .distinctBy { it.cacheKey }
+            .mapNotNull { semester ->
+                semester.name?.let { name ->
+                    parseGradeSemester(name)
+                }
+            }
+            .distinctBy { semester -> semester.cacheKey }
 
         val summaryTable = withContext(Dispatchers.IO) {
             LmsApi.getSemesterGradeSummaryTable()
@@ -103,7 +111,7 @@ class GradeRepository @Inject constructor(
 
         GradeSemesterData(
             courses = courses,
-            credits = "${totalCredits}학점",
+            credits = totalCredits.toString(),
             courseCount = courses.size.toString()
         )
     }
@@ -128,9 +136,9 @@ class GradeRepository @Inject constructor(
     }
 
     // LMS 학기 문자열을 성적 학기 데이터로 변환합니다.
-    private fun String.parseGradeSemester(): GradeSemester? {
+    private fun parseGradeSemester(rawSemesterName: String): GradeSemester? {
         Regex("""(\d{4})(?:년|-)\s*([12]학기)""")
-            .find(this)?.let { match ->
+            .find(rawSemesterName)?.let { match ->
                 val year = match.groupValues[1]
                 val semester = when (match.groupValues[2]) {
                     "1학기" -> Semester.FIRST
@@ -140,30 +148,30 @@ class GradeRepository @Inject constructor(
                 return GradeSemester(
                     label = buildSemesterLabel(year = year, semester = semester.nameKor),
                     year = year,
-                    semesterName = semester.name
+                    semesterName = semester.name,
+                    cacheKey = buildCacheKey(year = year, semester = semester)
                 )
             }
-        Regex("""(\d{4})-(하계|동계)계절제""").find(this)?.let { match ->
-        val year = match.groupValues[1]
-        val semester = when (match.groupValues[2]) {
-            "하계" -> Semester.SUMMER
-            "동계" -> Semester.WINTER
-            else -> return null
-        }
+        Regex("""(\d{4})-(하계|동계)계절제""")
+            .find(rawSemesterName)?.let { match ->
+                val year = match.groupValues[1]
+                val semester = when (match.groupValues[2]) {
+                    "하계" -> Semester.SUMMER
+                    "동계" -> Semester.WINTER
+                    else -> return null
+                }
 
-        return GradeSemester(
-            label = buildSemesterLabel(year = year, semester = semester.nameKor),
-            year = year,
-            semesterName = semester.name
-        )
+                return GradeSemester(
+                    label = buildSemesterLabel(year = year, semester = semester.nameKor),
+                    year = year,
+                    semesterName = semester.name,
+                    cacheKey = buildCacheKey(year = year, semester = semester)
+                )
+            }
+        return null
     }
-    return null
-}
-    private val GradeSemester.cacheKey: String
-        get() = label
 
     // 연도와 LMS 학기 값을 성적 캐시 키로 변환합니다.
-    private fun buildCacheKey(year: String, semester: Semester): String =
-        buildSemesterLabel(year, semester.nameKor)
-
+    private fun buildCacheKey(year: String, semester: Semester): SemesterKey =
+        SemesterKey(year = year, semesterName = semester.name)
 }

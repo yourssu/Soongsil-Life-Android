@@ -5,13 +5,20 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GradeData(
     val semesters: List<GradeSemester> = emptyList(),
-    val summaries: Map<String, GradeSemesterSummary> = emptyMap(),
-    val grades: Map<String, GradeSemesterData> = emptyMap()
+    val summaries: Map<SemesterKey, GradeSemesterSummary> = emptyMap(),
+    val grades: Map<SemesterKey, GradeSemesterData> = emptyMap()
 )
 
 @Serializable
 data class GradeSemester(
     val label: String,
+    val year: String,
+    val semesterName: String,
+    val cacheKey: SemesterKey = SemesterKey(year = year, semesterName = semesterName)
+)
+
+@Serializable
+data class SemesterKey(
     val year: String,
     val semesterName: String
 )

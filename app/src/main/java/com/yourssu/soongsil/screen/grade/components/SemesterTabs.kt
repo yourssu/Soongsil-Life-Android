@@ -31,11 +31,11 @@ fun SemesterTabs(
 ) {
     val activeTabColor = if (isSystemInDarkTheme()) {
         SoongsilPalette.Blue600
-    } else { SoongsilPalette.Black }
+    } else { SoongsilPalette.Gray950 }
 
     val inactiveTabColor = if (isSystemInDarkTheme()) {
-        SoongsilPalette.Gray800.copy(alpha = 0.4f)
-    } else { SoongsilPalette.Gray150 }
+        Color(0xFF2C2C2E)
+    } else { SoongsilPalette.Gray100 }
 
     LazyRow(
         modifier = modifier.fillMaxWidth(),

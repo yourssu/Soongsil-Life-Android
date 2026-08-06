@@ -47,7 +47,8 @@ fun GpaTrendChart(
     onIncludeSeasonSemesterChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gridColor = MaterialTheme.colorScheme.surfaceVariant
+    val isDarkTheme = isSystemInDarkTheme()
+    val gridColor = if (isDarkTheme) Color(0xFF2C2C2E) else SoongsilPalette.Gray100
     val textMeasure = rememberTextMeasurer()
     val scoreTextStyle = TextStyle(
         color = SoongsilPalette.Blue600,
@@ -55,7 +56,7 @@ fun GpaTrendChart(
         fontWeight = FontWeight.SemiBold
     )
     val axisTextStyle = TextStyle(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        color = if(isDarkTheme) Color(0xFF8A8A8E) else SoongsilPalette.Slate200,
         fontSize = 10.sp,
         fontWeight = FontWeight.Normal,
         fontStyle = FontStyle.Italic
@@ -64,8 +65,8 @@ fun GpaTrendChart(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f) , RoundedCornerShape(20.dp))
+            .background(if (isDarkTheme) Color(0xFF1C1C1E) else SoongsilPalette.Gray25 , RoundedCornerShape(20.dp))
+            .border(1.dp, if (isDarkTheme) Color(0xFF2C2C2E) else SoongsilPalette.Slate100 , RoundedCornerShape(20.dp))
             .padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -130,13 +131,12 @@ fun GpaTrendChart(
 
             if (points.size >= 2) {
                 val maxGpa = 4.5f
-                // 계절학기 등 gpa가 0.0으로 표시되는 특수한 경우를 위해 하한선을 융통성 있게 조정
-                val minGpa = minOf(1.5f, points.minOf { it.gpa })
+                val minGpa = 1.5f
 
                 val range = maxGpa - minGpa
 
                 // 평점을 차트의 세로 좌표로 변환합니다.
-                fun gpaToY(gpa: Float): Float = h * (1f - (gpa - minGpa) / range) * 0.88f + h * 0.06f
+                fun gpaToY(gpa: Float): Float = h * (1f - (gpa - minGpa).coerceAtLeast(0f) / range) * 0.88f + h * 0.06f
                 // 학기 순서를 차트의 가로 좌표로 변환합니다.
                 fun indexToX(i: Int): Float = padLeft + chartWidth * i / (points.size - 1)
 
@@ -197,7 +197,7 @@ fun GpaTrendChart(
                     text = pt.shortSemesterName,
                     fontSize = 10.sp,
                     fontWeight = if (pt.isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (pt.isCurrent) Color(0xFF0062FF) else Color(0xFF8B95A1),
+                    color = if (pt.isCurrent) SoongsilPalette.Blue600 else SoongsilPalette.Slate400,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

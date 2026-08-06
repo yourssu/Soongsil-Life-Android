@@ -13,20 +13,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.screen.grade.model.CourseItem
 import com.yourssu.soongsil.screen.grade.model.badgeBgColor
 import com.yourssu.soongsil.screen.grade.model.dodColor
 import com.yourssu.soongsil.screen.grade.model.gradeColor
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
 // 과목별 상세 성적 카드를 표시합니다.
 @Composable
@@ -34,12 +33,13 @@ fun CourseDetailCard(
     course: CourseItem,
     modifier: Modifier = Modifier
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f) , RoundedCornerShape(16.dp))
+            .background(if (isDarkTheme) Color(0xFF1C1C1E) else SoongsilPalette.White, RoundedCornerShape(16.dp))
+            .border(1.dp, if (isDarkTheme) Color(0xFF2C2C2E) else SoongsilPalette.Slate100 , RoundedCornerShape(16.dp))
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -65,7 +65,7 @@ fun CourseDetailCard(
                 fontSize = 15.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = if (isDarkTheme) Color(0xFFF5F5F5) else SoongsilPalette.Navy700,
                 maxLines = 1
             )
             Row(
@@ -76,7 +76,7 @@ fun CourseDetailCard(
                     text = course.credit,
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    color = if (isDarkTheme) Color(0xFF8A8A8E) else SoongsilPalette.Slate200,
                     maxLines = 1
                 )
                 Text(
@@ -86,14 +86,14 @@ fun CourseDetailCard(
                         .basicMarquee(),
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isDarkTheme) Color(0xFF8A8A8E) else SoongsilPalette.Slate400,
                     maxLines = 1
                 )
             }
         }
         Box(
             modifier = Modifier
-                .background(course.badgeBgColor(isSystemInDarkTheme()), RoundedCornerShape(8.dp))
+                .background(course.badgeBgColor(isDarkTheme), RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -101,7 +101,7 @@ fun CourseDetailCard(
                 text = course.grade,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = course.gradeColor(isSystemInDarkTheme())
+                color = course.gradeColor(isDarkTheme)
             )
         }
     }
