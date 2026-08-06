@@ -39,6 +39,7 @@ import com.yourssu.data.nav.Chapel
 import com.yourssu.data.nav.Dashboard
 import com.yourssu.data.nav.Grade
 import com.yourssu.data.nav.Graduate
+import com.yourssu.data.nav.Keep
 import com.yourssu.data.nav.Login
 import com.yourssu.data.nav.MyPage
 import com.yourssu.data.nav.PushNotifications
@@ -48,6 +49,8 @@ import com.yourssu.soongsil.screen.chapel.ChapelScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
+import com.yourssu.soongsil.screen.keep.KeepScreen
+import com.yourssu.soongsil.screen.keep.KeepViewModel
 import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
@@ -66,6 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+
             val navController = rememberNavController()
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
@@ -79,7 +83,8 @@ class MainActivity : ComponentActivity() {
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
-                    currentRoute == MyPage::class.qualifiedName -> MainTab.MY_PAGE
+                    currentRoute == MyPage::class.qualifiedName ||
+                        currentRoute == Keep::class.qualifiedName -> MainTab.MY_PAGE
                     else -> MainTab.HOME
                 }
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
@@ -201,7 +206,29 @@ class MainActivity : ComponentActivity() {
                             MyPageScreen(
                                 gradeNotificationEnabled = gradeNotificationEnabled,
                                 onGradeNotificationToggle = viewModel::setGradeNotificationEnabled,
-                                onLogoutClick = viewModel::logout
+                                onLogoutClick = viewModel::logout,
+                                onKeepClick = { navController.navigate(Keep) }
+                            )
+                        }
+                        composable<Keep> {
+                            val viewModel: KeepViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Keep> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
+                            KeepScreen(
+                                uiState = uiState,
+                                onBackClick = { navController.popBackStack() },
+                                onRefresh = viewModel::refresh,
+                                onRetryClick = viewModel::retry
                             )
                         }
                         composable<Timetable> {

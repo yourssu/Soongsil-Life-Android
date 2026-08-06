@@ -28,3 +28,6 @@ object Graduate // 졸업사정표
 
 @Serializable
 object MyPage // 마이페이지 탭
+
+@Serializable
+object Keep // 수강신청 장바구니
