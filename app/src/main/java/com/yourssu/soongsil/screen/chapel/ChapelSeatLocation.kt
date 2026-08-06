@@ -562,6 +562,63 @@ private fun SeatMapWrap(
 }
 
 @Composable
+fun ChapelSeatMapCard(
+    chapelData: DashboardChapelData,
+    modifier: Modifier = Modifier,
+) {
+    val seatParts = chapelData.seat
+        .split("-")
+        .map { it.trim() }
+
+    val zone = seatParts
+        .getOrNull(0)
+        ?.uppercase()
+        .orEmpty()
+
+    val rowNumber = seatParts
+        .getOrNull(1)
+        ?.toIntOrNull()
+        ?: 1
+
+    val columnNumber = seatParts
+        .getOrNull(2)
+        ?.toIntOrNull()
+        ?: 1
+
+    val seatInfo = SeatInfo(
+        code = chapelData.seat,
+        floor = getSeatLocationFloor(zone),
+        building = chapelData.seatDescription
+            .substringBefore(" · ")
+            .ifBlank { "한경직기념관" },
+        zone = zone,
+        row = (rowNumber - 1).coerceAtLeast(0),
+        col = (columnNumber - 1).coerceAtLeast(0),
+        helperText = "",
+    )
+
+    val guideText = if (chapelData.seat.isBlank()) {
+        "참고용: 배정된 좌석 정보가 없습니다."
+    } else {
+        "참고용: ${zone}구역 ${rowNumber}번째 줄 ${columnNumber}번째 자리예요."
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        SeatMapWrap(
+            seatInfo = seatInfo,
+            pulpitLabel = "STAGE",
+            calloutText = "이 자리예요",
+        )
+
+        HelperText(
+            text = guideText,
+        )
+    }
+}
+
+@Composable
 private fun HelperText(
     text: String,
     modifier: Modifier = Modifier,

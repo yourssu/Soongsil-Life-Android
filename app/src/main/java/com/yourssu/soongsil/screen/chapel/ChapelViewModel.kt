@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.soongsil.data.DashboardRepository
-import com.yourssu.soongsil.data.LmsAuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,14 +15,12 @@ import javax.inject.Inject
 
 data class ChapelUiState(
     val isLoading: Boolean = true,
-    val loginRequired: Boolean = false,
     val error: String? = null,
     val chapelData: DashboardChapelData? = null,
 )
 
 @HiltViewModel
 class ChapelViewModel @Inject constructor(
-    private val lmsAuthRepository: LmsAuthRepository,
     private val dashboardRepository: DashboardRepository,
 ) : ViewModel() {
 
@@ -31,14 +28,14 @@ class ChapelViewModel @Inject constructor(
     val uiState: StateFlow<ChapelUiState> = _uiState.asStateFlow()
 
     init {
-        loadChapelData()
+        loadCachedChapelData()
     }
 
     fun retry() {
-        loadChapelData()
+        loadCachedChapelData()
     }
 
-    private fun loadChapelData() {
+    private fun loadCachedChapelData() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update {
                 it.copy(
@@ -47,56 +44,27 @@ class ChapelViewModel @Inject constructor(
                 )
             }
 
-            val credentials = lmsAuthRepository.getSavedCredentials()
+            val chapelData = dashboardRepository
+                .getCachedData()
+                ?.chapel
 
-            if (credentials == null) {
+            if (chapelData != null) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        loginRequired = true,
+                        error = null,
+                        chapelData = chapelData,
                     )
                 }
-                return@launch
-            }
-
-            if (!lmsAuthRepository.hasActiveSession()) {
-                val loginResult = lmsAuthRepository.login(
-                    credentials.studentId,
-                    credentials.password,
-                )
-
-                if (loginResult.isFailure) {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loginRequired = true,
-                            error = loginResult.exceptionOrNull()?.message,
-                        )
-                    }
-                    return@launch
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "저장된 채플 정보를 불러올 수 없습니다.",
+                        chapelData = null,
+                    )
                 }
             }
-
-            dashboardRepository.getChapelData()
-                .onSuccess { chapelData ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loginRequired = false,
-                            error = null,
-                            chapelData = chapelData,
-                        )
-                    }
-                }
-                .onFailure { throwable ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = throwable.message
-                                ?: "채플 정보를 불러오지 못했습니다.",
-                        )
-                    }
-                }
         }
     }
 }

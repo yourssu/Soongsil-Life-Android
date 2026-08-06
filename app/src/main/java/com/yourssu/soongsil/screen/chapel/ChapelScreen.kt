@@ -35,10 +35,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yourssu.data.dashboard.DashboardChapelData
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun ChapelScreen(
-    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChapelViewModel = hiltViewModel(),
 ) {
@@ -47,7 +48,6 @@ fun ChapelScreen(
     ChapelScreenContent(
         uiState = uiState,
         onRetryClick = viewModel::retry,
-        onSeatLocationClick = onSeatLocationClick,
         modifier = modifier,
     )
 }
@@ -56,7 +56,6 @@ fun ChapelScreen(
 private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
-    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -75,7 +74,6 @@ private fun ChapelScreenContent(
         uiState.chapelData != null -> {
             ChapelSuccessScreen(
                 chapelData = uiState.chapelData,
-                onSeatLocationClick = onSeatLocationClick,
                 modifier = modifier,
             )
         }
@@ -93,7 +91,6 @@ private fun ChapelScreenContent(
 @Composable
 private fun ChapelSuccessScreen(
     chapelData: DashboardChapelData,
-    onSeatLocationClick: (DashboardChapelData) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val seatZoneCode = chapelData.seat
@@ -109,6 +106,7 @@ private fun ChapelSuccessScreen(
     val seatFloor = getSeatFloor(chapelData.seat)
 
     ChapelSeatScreen(
+        chapelData = chapelData,
         seatNumber = chapelData.seat.ifBlank { "좌석 정보 없음" },
         seatFloor = seatFloor,
         seatZone = seatZone,
@@ -118,9 +116,6 @@ private fun ChapelSuccessScreen(
         absent = chapelData.absent,
         remaining = chapelData.remaining,
         progress = chapelData.progress,
-        onViewSeatClick = {
-            onSeatLocationClick(chapelData)
-        },
         modifier = modifier,
     )
 }
@@ -223,7 +218,6 @@ fun SeatHeroCard(
     seatNumber: String,
     floor: String,
     zone: String,
-    onViewSeatClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -263,13 +257,6 @@ fun SeatHeroCard(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xCCFFFFFF)
-            )
-            Text(
-                text = "좌석 위치 보기 →",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.clickable { onViewSeatClick() }
             )
         }
     }
@@ -367,7 +354,7 @@ fun AttendanceGauge(
 
 // ─── CTA Button ───
 
-@Composable
+/*@Composable
 fun AttendanceCta(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -415,13 +402,13 @@ fun AttendanceCta(
             color = Color(0xFF9CA3AF)
         )
     }
-}
+}*/
 
 // ─── Screen ───
-
 @Composable
-@Preview
+//@Preview
 fun ChapelSeatScreen(
+    chapelData: DashboardChapelData,
     seatNumber: String = "B-12",
     seatFloor: String = "1층 앞자리",
     seatZone: String = "A구역",
@@ -433,7 +420,6 @@ fun ChapelSeatScreen(
     progress: Float = 0.6f,
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
-    onViewSeatClick: () -> Unit = {},
     onAttendClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -453,14 +439,19 @@ fun ChapelSeatScreen(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 8.dp,
+                    bottom = 16.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SeatHeroCard(
                 seatNumber = seatNumber,
                 floor = seatFloor,
                 zone = seatZone,
-                onViewSeatClick = onViewSeatClick
             )
             AttendanceGauge(
                 attended = attended,
@@ -470,8 +461,9 @@ fun ChapelSeatScreen(
                 remaining = remaining,
                 progress = progress,
             )
+            ChapelSeatMapCard(
+                chapelData = chapelData,
+            )
         }
-
-        AttendanceCta(onClick = onAttendClick)
     }
 }

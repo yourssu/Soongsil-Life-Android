@@ -32,30 +32,12 @@ class DashboardRepository @Inject constructor(
     private val dashboardDataKey = stringPreferencesKey("dashboard_data")
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val chapelDataKey = stringPreferencesKey("chapel_data")
-
     suspend fun getCachedData(): DashboardData? {
         val encodedData = context.dashboardDataStore.data.first()[dashboardDataKey]
             ?: return null
         return runCatching {
             json.decodeFromString<DashboardData>(encodedData)
         }.getOrNull()
-    }
-
-    private suspend fun getCachedChapelData(): DashboardChapelData? {
-        val encodedData = context.dashboardDataStore.data
-            .first()[chapelDataKey]
-            ?: return null
-
-        return runCatching {
-            json.decodeFromString<DashboardChapelData>(encodedData)
-        }.getOrNull()
-    }
-
-    private suspend fun saveChapelData(chapelData: DashboardChapelData) {
-        context.dashboardDataStore.edit { preferences ->
-            preferences[chapelDataKey] = json.encodeToString(chapelData)
-        }
     }
 
     suspend fun clearCachedData(): Result<Unit> = runCatching {
@@ -104,18 +86,6 @@ class DashboardRepository @Inject constructor(
         dashboardData
     }
 
-    suspend fun getChapelData(): Result<DashboardChapelData> = runCatching {
-        LmsApi.getChapelTable().toAvailableChapelData()
-    }
-        .onSuccess { chapelData ->
-            Log.d(
-                TAG,
-                "채플 정보 로드 성공: 좌석 ${chapelData.seat}"
-            )
-        }
-        .onFailure {
-            Log.e(TAG, "채플 정보 로드 실패", it)
-        }
     private suspend fun getLoginInfo(): Info = suspendCancellableCoroutine { continuation ->
         LmsApi.getLoginInfo { result ->
             if (!continuation.isActive) return@getLoginInfo
@@ -174,22 +144,21 @@ class DashboardRepository @Inject constructor(
         }
 
         if (hasNewSeatData) {
-            saveChapelData(newChapelData)
-
             Log.d(
                 TAG,
-                "새 채플 좌석 정보를 저장했습니다: ${newChapelData.seat}"
+                "새 채플 좌석 정보를 사용합니다: ${newChapelData.seat}"
             )
 
             return newChapelData
         }
 
-        val cachedChapelData = getCachedChapelData()
+        val cachedChapelData = getCachedData()?.chapel
 
         if (cachedChapelData != null && cachedChapelData.seat.isNotBlank()) {
             Log.d(
                 TAG,
-                "새 좌석 정보가 없어 기존 채플 정보를 사용합니다: ${cachedChapelData.seat}"
+                "새 좌석 정보가 없어 기존 대시보드의 채플 정보를 사용합니다: " +
+                        cachedChapelData.seat
             )
 
             return cachedChapelData
