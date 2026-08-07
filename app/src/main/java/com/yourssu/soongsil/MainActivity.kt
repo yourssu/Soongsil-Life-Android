@@ -177,7 +177,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable<Grade> {
-                            GradeDetailScreen()
+                            GradeDetailScreen(onBackClick = { navController.popBackStack() })
                         }
                         composable<Graduate> {
                             // TODO: Implement GraduateScreen
