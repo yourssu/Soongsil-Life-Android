@@ -1,10 +1,12 @@
 package com.yourssu.soongsil.screen.chapel
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,10 +31,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.soongsil.R
+import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
 fun ChapelSeatLocation(
@@ -392,23 +397,26 @@ private fun ZoneSeatGrid(
     activeZone: String,
     mineRow: Int,
     mineCol: Int,
+    zoneWidth: Dp,
+    seatSize: Dp,
+    horizontalGap: Dp,
     modifier: Modifier = Modifier,
 ) {
     val pattern = getZoneSeatPattern(zone)
-    val maximumColumns = pattern.maxOfOrNull { it.length } ?: 0
-    val seatSize = 5.dp
-    val horizontalGap = 2.dp
-    val rowWidth = (maximumColumns * 7).dp
 
     Column(
-        modifier = modifier,
+        modifier = modifier.width(zoneWidth),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = zone,
             fontSize = 8.sp,
             fontWeight = if (zone == activeZone) FontWeight.Bold else FontWeight.Medium,
-            color = if (zone == activeZone) Color(0xFF0062FF) else Color(0xFF64748B),
+            color = if (zone == activeZone) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -420,7 +428,7 @@ private fun ZoneSeatGrid(
                 Spacer(modifier = Modifier.height(10.dp))
             } else {
                 Row(
-                    modifier = Modifier.width(rowWidth),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     rowPattern.forEachIndexed { column, value ->
@@ -437,9 +445,9 @@ private fun ZoneSeatGrid(
                             Box(
                                 modifier = seatModifier.background(
                                     color = if (isMySeat) {
-                                        Color(0xFF0062FF)
+                                        MaterialTheme.colorScheme.primary
                                     } else {
-                                        Color(0xFFE2E8F0)
+                                        MaterialTheme.colorScheme.outlineVariant
                                     },
                                     shape = RoundedCornerShape(1.dp),
                                 ),
@@ -464,35 +472,93 @@ private fun ChapelSeatMap(
     mineCol: Int,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(28.dp),
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.Top,
+    val firstFloorZones = listOf("A", "B", "C", "D", "E")
+    val secondFloorZones = listOf("F", "G", "H", "I", "J")
+    val allZones = firstFloorZones + secondFloorZones
+    val maximumColumns = allZones.maxOf { zone ->
+        getZoneSeatPattern(zone).maxOfOrNull { it.length } ?: 0
+    }.coerceAtLeast(1)
+
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val zonesPerRow = firstFloorZones.size
+        val zoneGap = maxWidth * 0.03f
+        val totalZoneGap = zoneGap * (zonesPerRow - 1)
+        val zoneWidth = (maxWidth - totalZoneGap) / zonesPerRow.toFloat()
+        val seatCellWidth = zoneWidth / maximumColumns.toFloat()
+        val horizontalGap = seatCellWidth * (2f / 7f)
+        val seatSize = seatCellWidth - horizontalGap
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
-            listOf("A", "B", "C", "D", "E").forEach { zone ->
-                ZoneSeatGrid(
-                    zone = zone,
-                    activeZone = activeZone,
-                    mineRow = mineRow,
-                    mineCol = mineCol,
-                )
-            }
+            FloorSeatMap(
+                floorLabel = "1층 (A, B, C, D, E)",
+                zones = firstFloorZones,
+                activeZone = activeZone,
+                mineRow = mineRow,
+                mineCol = mineCol,
+                zoneWidth = zoneWidth,
+                zoneGap = zoneGap,
+                seatSize = seatSize,
+                horizontalGap = horizontalGap,
+            )
+
+            FloorSeatMap(
+                floorLabel = "2층 (F, G, H, I, J)",
+                zones = secondFloorZones,
+                activeZone = activeZone,
+                mineRow = mineRow,
+                mineCol = mineCol,
+                zoneWidth = zoneWidth,
+                zoneGap = zoneGap,
+                seatSize = seatSize,
+                horizontalGap = horizontalGap,
+            )
         }
+    }
+}
+
+@Composable
+private fun FloorSeatMap(
+    floorLabel: String,
+    zones: List<String>,
+    activeZone: String,
+    mineRow: Int,
+    mineCol: Int,
+    zoneWidth: Dp,
+    zoneGap: Dp,
+    seatSize: Dp,
+    horizontalGap: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = floorLabel,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(zoneGap),
             verticalAlignment = Alignment.Top,
         ) {
-            listOf("F", "G", "H", "I", "J").forEach { zone ->
+            zones.forEach { zone ->
                 ZoneSeatGrid(
                     zone = zone,
                     activeZone = activeZone,
                     mineRow = mineRow,
                     mineCol = mineCol,
+                    zoneWidth = zoneWidth,
+                    seatSize = seatSize,
+                    horizontalGap = horizontalGap,
                 )
             }
         }
@@ -509,8 +575,8 @@ private fun SeatMapWrap(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFFFAFBFC), RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .padding(start = 12.dp, end = 12.dp, top = 18.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -519,14 +585,14 @@ private fun SeatMapWrap(
             modifier = Modifier
                 .width(240.dp)
                 .height(28.dp)
-                .background(Color(0xFF1F2937), RoundedCornerShape(6.dp)),
+                .background(MaterialTheme.colorScheme.inverseSurface, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = pulpitLabel,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
                 letterSpacing = 2.sp,
             )
         }
@@ -546,7 +612,7 @@ private fun SeatMapWrap(
         ) {
             Text(
                 text = "↑",
-                color = Color(0xFF0062FF),
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 18.sp,
             )
 
@@ -554,7 +620,7 @@ private fun SeatMapWrap(
 
             Text(
                 text = calloutText,
-                color = Color(0xFF0062FF),
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -598,9 +664,11 @@ fun ChapelSeatMapCard(
     )
 
     val guideText = if (chapelData.seat.isBlank()) {
-        "참고용: 배정된 좌석 정보가 없습니다."
+        "배정된 좌석 정보가 없습니다.\n" +
+                "해당 그림은 참고용으로 자리에 앉기 전 부착된 좌석표를 한번 더 확인해주세요."
     } else {
-        "참고용: ${zone}구역 ${rowNumber}번째 줄 ${columnNumber}번째 자리예요."
+        "${zone}구역 ${rowNumber}번째 줄 ${columnNumber}번째 자리예요.\n" +
+                "해당 그림은 참고용으로 자리에 앉기 전 부착된 좌석표를 한번 더 확인해주세요."
     }
 
     Column(
@@ -632,7 +700,7 @@ private fun HelperText(
             text = text,
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = (13 * 1.5).sp,
         )
     }
@@ -693,18 +761,22 @@ private fun MySeatLocationScreen(
     }
 }
 
+@Preview(name = "Light", showBackground = true)
+@Preview(name = "Narrow", showBackground = true, widthDp = 320)
+@Preview(
+    name = "Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
 @Composable
-@Preview(showBackground = true)
-fun ChapelSeatLocationSamplePreview() {
-    MySeatLocationScreen(
-        seatCode = "E-14-4",
-        seatFloor = "1층",
-        seatBuilding = "한경직기념관",
-        seatZone = "E",
-        seatRow = 13,
-        seatCol = 3,
-        helperText = "E구역 14번째 줄 4번째 자리예요",
-        pulpitLabel = "설교단",
-        calloutText = "이 자리에요",
-    )
+private fun ChapelSeatMapCardPreview() {
+    SoongsilLifeAndroidTheme {
+        ChapelSeatMapCard(
+            chapelData = DashboardChapelData(
+                seat = "H-6-1",
+                seatDescription = "한경직기념관 · 월 10:30",
+            ),
+            modifier = Modifier.padding(20.dp),
+        )
+    }
 }

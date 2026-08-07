@@ -1,30 +1,47 @@
 package com.yourssu.soongsil.screen.chapel
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,10 +50,15 @@ import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yourssu.data.dashboard.DashboardChapelData
+import com.yourssu.data.dashboard.DashboardChapelTerm
+import com.yourssu.data.dashboard.DashboardChapelWeeklyAttendance
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
 fun ChapelScreen(
@@ -48,6 +70,8 @@ fun ChapelScreen(
     ChapelScreenContent(
         uiState = uiState,
         onRetryClick = viewModel::retry,
+        onSemesterSelect = viewModel::selectSemester,
+        onAttendanceHistoryOpen = viewModel::loadAvailableChapelTerms,
         modifier = modifier,
     )
 }
@@ -56,6 +80,8 @@ fun ChapelScreen(
 private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
+    onSemesterSelect: (String, String) -> Unit,
+    onAttendanceHistoryOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -73,7 +99,9 @@ private fun ChapelScreenContent(
 
         uiState.chapelData != null -> {
             ChapelSuccessScreen(
-                chapelData = uiState.chapelData,
+                uiState = uiState,
+                onSemesterSelect = onSemesterSelect,
+                onAttendanceHistoryOpen = onAttendanceHistoryOpen,
                 modifier = modifier,
             )
         }
@@ -90,9 +118,13 @@ private fun ChapelScreenContent(
 
 @Composable
 private fun ChapelSuccessScreen(
-    chapelData: DashboardChapelData,
+    uiState: ChapelUiState,
+    onSemesterSelect: (String, String) -> Unit,
+    onAttendanceHistoryOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val chapelData = uiState.chapelData ?: return
+    var showAttendanceHistory by rememberSaveable { mutableStateOf(false) }
     val seatZoneCode = chapelData.seat
         .substringBefore("-")
         .trim()
@@ -116,8 +148,25 @@ private fun ChapelSuccessScreen(
         absent = chapelData.absent,
         remaining = chapelData.remaining,
         progress = chapelData.progress,
+        onAttendanceHistoryClick = {
+            showAttendanceHistory = true
+            onAttendanceHistoryOpen()
+        },
         modifier = modifier,
     )
+
+    if (showAttendanceHistory) {
+        ChapelAttendanceHistorySheet(
+            chapelData = chapelData,
+            isLoading = uiState.isSemesterLoading,
+            error = uiState.semesterError,
+            availableTerms = uiState.availableTerms,
+            isTermsLoading = uiState.isTermsLoading,
+            termsError = uiState.termsError,
+            onSemesterSelect = onSemesterSelect,
+            onDismissRequest = { showAttendanceHistory = false },
+        )
+    }
 }
 
 private fun getSeatFloor(seat: String): String {
@@ -218,6 +267,7 @@ fun SeatHeroCard(
     seatNumber: String,
     floor: String,
     zone: String,
+    onAttendanceHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -258,6 +308,25 @@ fun SeatHeroCard(
                 fontWeight = FontWeight.Medium,
                 color = Color(0xCCFFFFFF)
             )
+            TextButton(
+                onClick = onAttendanceHistoryClick,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text(
+                    text = "주차별 출석 현황 확인하기",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_caret_right),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }
@@ -352,6 +421,343 @@ fun AttendanceGauge(
     }
 }
 
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ChapelAttendanceHistorySheet(
+    chapelData: DashboardChapelData,
+    isLoading: Boolean,
+    error: String?,
+    availableTerms: List<DashboardChapelTerm>,
+    isTermsLoading: Boolean,
+    termsError: String?,
+    onSemesterSelect: (String, String) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        ChapelAttendanceHistoryContent(
+            chapelData = chapelData,
+            isLoading = isLoading,
+            error = error,
+            availableTerms = availableTerms,
+            isTermsLoading = isTermsLoading,
+            termsError = termsError,
+            onSemesterSelect = onSemesterSelect,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+    }
+}
+
+@Composable
+private fun ChapelAttendanceHistoryContent(
+    chapelData: DashboardChapelData,
+    isLoading: Boolean,
+    error: String?,
+    availableTerms: List<DashboardChapelTerm>,
+    isTermsLoading: Boolean,
+    termsError: String?,
+    onSemesterSelect: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "주차별 출석 현황",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "학기를 선택해 채플 출석 기록을 확인하세요.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+
+        ChapelSemesterSelector(
+            selectedYear = chapelData.year,
+            selectedSemester = chapelData.semester,
+            options = availableTerms,
+            enabled = !isLoading && !isTermsLoading && availableTerms.isNotEmpty(),
+            onSelect = onSemesterSelect,
+        )
+
+        if (isLoading || isTermsLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
+
+        if (isTermsLoading) {
+            Text(
+                text = "학번을 기준으로 조회 가능한 채플 학기를 찾고 있습니다.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+            )
+        }
+
+        val visibleError = error ?: termsError
+        if (visibleError != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text(
+                    text = visibleError,
+                    modifier = Modifier.padding(14.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 13.sp,
+                )
+            }
+        }
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            chapelData.weeklyAttendances.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(16.dp),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "해당 학기의 출석 기록이 없습니다.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 480.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(
+                        items = chapelData.weeklyAttendances,
+                        key = { attendance -> "${attendance.week}-${attendance.date}" },
+                    ) { attendance ->
+                        ChapelWeeklyAttendanceItem(attendance = attendance)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChapelSemesterSelector(
+    selectedYear: String,
+    selectedSemester: String,
+    options: List<DashboardChapelTerm>,
+    enabled: Boolean,
+    onSelect: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = if (selectedYear.isBlank() || selectedSemester.isBlank()) {
+        "학기 선택"
+    } else {
+        "${selectedYear}학년도 $selectedSemester"
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled) { expanded = true },
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = selectedLabel,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "⌄",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "${option.year}학년도 ${option.semester}",
+                            fontWeight = if (
+                                option.year == selectedYear &&
+                                option.semester == selectedSemester
+                            ) {
+                                FontWeight.Bold
+                            } else {
+                                FontWeight.Normal
+                            },
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(option.year, option.semester)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChapelWeeklyAttendanceItem(
+    attendance: DashboardChapelWeeklyAttendance,
+    modifier: Modifier = Modifier,
+) {
+    val normalizedStatus = attendance.status.trim()
+    val statusText = normalizedStatus.ifBlank { "예정" }
+    val statusContainerColor = when {
+        normalizedStatus.contains("결석") || normalizedStatus.contains("미출석") -> {
+            MaterialTheme.colorScheme.errorContainer
+        }
+        normalizedStatus.startsWith("출석") -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
+        normalizedStatus.startsWith("지각") -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val statusContentColor = when {
+        normalizedStatus.contains("결석") || normalizedStatus.contains("미출석") -> {
+            MaterialTheme.colorScheme.onErrorContainer
+        }
+        normalizedStatus.startsWith("출석") -> MaterialTheme.colorScheme.tertiary
+        normalizedStatus.startsWith("지각") -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val description = listOf(
+        attendance.lectureType,
+        attendance.speaker,
+        attendance.title,
+    ).filter { it.isNotBlank() }.joinToString(" · ")
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .size(width = 58.dp, height = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = "${attendance.week}",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 19.sp,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "주차",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = attendance.date.ifBlank { "수업일 미정" },
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (description.isNotBlank()) {
+                    Text(
+                        text = description,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            Surface(
+                color = statusContainerColor,
+                shape = RoundedCornerShape(999.dp),
+            ) {
+                Text(
+                    text = statusText,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    color = statusContentColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
 // ─── CTA Button ───
 
 /*@Composable
@@ -420,7 +826,7 @@ fun ChapelSeatScreen(
     progress: Float = 0.6f,
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
-    onAttendClick: () -> Unit = {},
+    onAttendanceHistoryClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
@@ -452,6 +858,7 @@ fun ChapelSeatScreen(
                 seatNumber = seatNumber,
                 floor = seatFloor,
                 zone = seatZone,
+                onAttendanceHistoryClick = onAttendanceHistoryClick,
             )
             AttendanceGauge(
                 attended = attended,
@@ -463,6 +870,58 @@ fun ChapelSeatScreen(
             )
             ChapelSeatMapCard(
                 chapelData = chapelData,
+            )
+        }
+    }
+}
+
+@Preview(name = "Attendance History - Light", showBackground = true)
+@Preview(
+    name = "Attendance History - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ChapelAttendanceHistoryPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            ChapelAttendanceHistoryContent(
+                chapelData = DashboardChapelData(
+                    year = "2026",
+                    semester = "1학기",
+                    weeklyAttendances = listOf(
+                        DashboardChapelWeeklyAttendance(
+                            week = 1,
+                            date = "2026.03.09",
+                            lectureType = "정규채플",
+                            speaker = "홍길동",
+                            title = "새로운 시작",
+                            status = "출석",
+                        ),
+                        DashboardChapelWeeklyAttendance(
+                            week = 2,
+                            date = "2026.03.16",
+                            lectureType = "정규채플",
+                            status = "지각",
+                        ),
+                        DashboardChapelWeeklyAttendance(
+                            week = 3,
+                            date = "2026.03.23",
+                            lectureType = "정규채플",
+                            status = "결석",
+                        ),
+                    ),
+                ),
+                isLoading = false,
+                error = null,
+                availableTerms = listOf(
+                    DashboardChapelTerm(year = "2026", semester = "1학기"),
+                    DashboardChapelTerm(year = "2025", semester = "2학기"),
+                ),
+                isTermsLoading = false,
+                termsError = null,
+                onSemesterSelect = { _, _ -> },
+                modifier = Modifier.padding(20.dp),
             )
         }
     }
