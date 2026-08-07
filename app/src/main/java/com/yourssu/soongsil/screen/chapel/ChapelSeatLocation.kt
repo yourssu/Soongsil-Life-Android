@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.soongsil.R
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
@@ -494,7 +496,7 @@ private fun ChapelSeatMap(
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             FloorSeatMap(
-                floorLabel = "1층 (A, B, C, D, E)",
+                floorLabel = "1층",
                 zones = firstFloorZones,
                 activeZone = activeZone,
                 mineRow = mineRow,
@@ -506,7 +508,7 @@ private fun ChapelSeatMap(
             )
 
             FloorSeatMap(
-                floorLabel = "2층 (F, G, H, I, J)",
+                floorLabel = "2층",
                 zones = secondFloorZones,
                 activeZone = activeZone,
                 mineRow = mineRow,
@@ -572,10 +574,16 @@ private fun SeatMapWrap(
     calloutText: String,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surfaceVariant
+    } else {
+        SoongsilPalette.Gray25
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+            .background(backgroundColor, RoundedCornerShape(16.dp))
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .padding(start = 12.dp, end = 12.dp, top = 18.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
