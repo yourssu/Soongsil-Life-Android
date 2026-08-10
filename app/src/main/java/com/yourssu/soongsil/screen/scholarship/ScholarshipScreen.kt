@@ -227,7 +227,6 @@ private fun ScholarshipHistoryCard(
         .joinToString(" · ")
     val additionalDescription = listOfNotNull(
         history.paymentMethod.takeIf { it.isNotBlank() }?.let { "지급방식 $it" },
-        history.selectedAmount.toAmountDetail("선발금액"),
         history.redeemedAmount.toAmountDetail("환수금액"),
         history.replacedAmount.toAmountDetail("대체금액"),
         history.replacedScholarshipName.takeIf { it.isNotBlank() }?.let { "대체장학금 $it" },
@@ -239,7 +238,7 @@ private fun ScholarshipHistoryCard(
             .fillMaxWidth()
             .heightIn(min = 90.5.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -328,7 +327,7 @@ private fun TuitionHistoryList(
         ),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        items(tuitionHistories) { history ->
+        items(tuitionHistories.sortedByDescending { it.registrationDate }) { history ->
             TuitionHistoryCard(history = history)
         }
     }
@@ -344,7 +343,7 @@ private fun TuitionHistoryCard(
             .fillMaxWidth()
             .heightIn(min = 93.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -380,7 +379,7 @@ private fun TuitionHistoryCard(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(horizontal = 7.dp, vertical = 2.dp)
         )
     }
@@ -541,7 +540,7 @@ private val previewScholarshipHistories = listOf(
         note = "[융특]학과우수장학금",
         dropReason = "",
         processDate = "2023.02.14",
-        selectedAmount = "100,000",
+        selectedAmount = "0",
         actualAmount = "100,000",
         redeemedAmount = "10,000",
         replacedAmount = "50,000",
@@ -557,7 +556,7 @@ private val previewScholarshipHistories = listOf(
         note = "",
         dropReason = "",
         processDate = "2022.03.01",
-        selectedAmount = "180,000",
+        selectedAmount = "0",
         actualAmount = "180,000",
         redeemedAmount = "0",
         replacedAmount = "0",
