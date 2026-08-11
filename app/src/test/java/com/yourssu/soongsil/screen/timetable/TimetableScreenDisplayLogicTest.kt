@@ -2,8 +2,10 @@ package com.yourssu.soongsil.screen.timetable
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.data.timetable.TimetableDayOfWeek
 import com.yourssu.data.timetable.TimetableSemester
 import com.yourssu.data.timetable.TimetableTerm
+import java.time.DayOfWeek
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -78,6 +80,28 @@ class TimetableScreenDisplayLogicTest {
         assertEquals(
             TimetableCourseCardContentSpec(titleMaxLines = 2, locationLineCount = 2, isCompact = false),
             buildCourseCardContentSpec(90.dp)
+        )
+    }
+
+    @Test
+    fun buildCourseCardLocationLines_respectsLocationLineCount() {
+        val classroom = ClassroomDisplay(building = "정보과학관", room = "21303")
+
+        assertEquals(
+            listOf("정보과학관"),
+            buildCourseCardLocationLines(classroom, buildCourseCardContentSpec(60.dp))
+        )
+        assertEquals(
+            listOf("정보과학관", "21303"),
+            buildCourseCardLocationLines(classroom, buildCourseCardContentSpec(90.dp))
+        )
+    }
+
+    @Test
+    fun saturday_mapsToTimetableDay() {
+        assertEquals(
+            TimetableDayOfWeek.SATURDAY,
+            DayOfWeek.SATURDAY.toTimetableDayOfWeekOrNull()
         )
     }
 }

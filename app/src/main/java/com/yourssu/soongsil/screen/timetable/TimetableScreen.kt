@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,11 +74,8 @@ private const val TIMETABLE_DEFAULT_END_MINUTES = 17 * 60
 private const val TIMETABLE_BOTTOM_EXTRA_MINUTES = 30
 private const val TIMETABLE_COMPACT_CARD_THRESHOLD_DP = 54
 private const val TIMETABLE_MEDIUM_CARD_THRESHOLD_DP = 72
-private val TimetableGridLineColor = Color(0xFFDDE2E8)
+private const val TIMETABLE_BASE_DAY_COUNT = 5
 private val TimetableGridLineStroke = 0.5.dp
-private val TimetableContainerColor = Color(0xFFF2F4F6)
-private val TimetableTodayColumnColor = Color(0xFFEFF6FF)
-private val TimetableCurrentIndicatorColor = Color(0xFF2563EB)
 
 private val TimetableHourHeight = 48.dp
 
@@ -156,6 +154,49 @@ private val TimetableCoursePalettes = listOf(
     TimetableCoursePalette(backgroundColor = Color(0xFFE0E7FF), textColor = Color(0xFF4338CA)),
     TimetableCoursePalette(backgroundColor = Color(0xFFFCE7F3), textColor = Color(0xFFBE185D)),
     TimetableCoursePalette(backgroundColor = Color(0xFFE2E8F0), textColor = Color(0xFF334155))
+)
+
+private val TimetableDarkCoursePalettes = listOf(
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF2563EB).copy(alpha = 0.28f),
+        textColor = Color(0xFF93C5FD)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFFD97706).copy(alpha = 0.28f),
+        textColor = Color(0xFFFDBA74)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF059669).copy(alpha = 0.28f),
+        textColor = Color(0xFF6EE7B7)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF7C3AED).copy(alpha = 0.28f),
+        textColor = Color(0xFFD8B4FE)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFFDC2626).copy(alpha = 0.28f),
+        textColor = Color(0xFFFCA5A5)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF0891B2).copy(alpha = 0.28f),
+        textColor = Color(0xFF67E8F9)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFFCA8A04).copy(alpha = 0.28f),
+        textColor = Color(0xFFFDE68A)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF4F46E5).copy(alpha = 0.28f),
+        textColor = Color(0xFFA5B4FC)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFFDB2777).copy(alpha = 0.28f),
+        textColor = Color(0xFFF9A8D4)
+    ),
+    TimetableCoursePalette(
+        backgroundColor = Color(0xFF475569).copy(alpha = 0.28f),
+        textColor = Color(0xFFCBD5E1)
+    )
 )
 
 @Composable
@@ -465,7 +506,7 @@ private fun TimetableSuccessState(
 ) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = TimetableContainerColor,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.fillMaxWidth()
     ) {
         TimetableGrid(
@@ -490,11 +531,14 @@ private fun TimetableGrid(
 ) {
     val dayHeaders = TimetableDayOfWeek.entries
     val coursePaletteIndices = remember(courses) { buildTimetableCoursePaletteIndices(courses) }
-    val timeLabelColor = if (isSystemInDarkTheme()) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        Color(0xFF6B7280)
-    }
+    val timetableSurfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val todayColumnColor = MaterialTheme.colorScheme.primary.copy(
+        alpha = if (isSystemInDarkTheme()) 0.16f else 0.08f
+    )
+    val currentIndicatorColor = MaterialTheme.colorScheme.primary
+    val horizontalScrollState = rememberScrollState()
 
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth()
@@ -512,11 +556,15 @@ private fun TimetableGrid(
         val gridTop = topPadding + headerHeight + headerSpacing
         val gridHeight = TimetableHourHeight * (totalMinutes / 60f)
         val containerHeight = topPadding + headerHeight + headerSpacing + gridHeight + bottomPadding
-        val availableWidth = maxWidth - horizontalPadding * 2 - timeColumnWidth - columnGap * (dayHeaders.size - 1)
-        val dayColumnWidth = availableWidth / dayHeaders.size
+        val weekdayColumnsWidth = maxWidth -
+            horizontalPadding * 2 -
+            timeColumnWidth -
+            columnGap * (TIMETABLE_BASE_DAY_COUNT - 1)
+        val dayColumnWidth = weekdayColumnsWidth / TIMETABLE_BASE_DAY_COUNT
         val dayColumnStride = dayColumnWidth + columnGap
         val contentStartX = horizontalPadding + timeColumnWidth
         val gridWidth = dayColumnWidth * dayHeaders.size + columnGap * (dayHeaders.size - 1)
+        val scrollViewportWidth = maxWidth - contentStartX - horizontalPadding
         val effectiveCurrentDateTime = currentDateTime ?: remember { ZonedDateTime.now() }
         val currentState = remember(selectedTerm, effectiveCurrentDateTime) {
             buildTimetableCurrentState(
@@ -528,121 +576,133 @@ private fun TimetableGrid(
             it.endMinutes > TIMETABLE_START_MINUTES && it.startMinutes < timetableEndMinutes
         }
 
-        Canvas(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(containerHeight)
         ) {
-            val topPaddingPx = topPadding.toPx()
-            val headerHeightPx = headerHeight.toPx()
-            val headerSpacingPx = headerSpacing.toPx()
-            val gridTopPx = topPaddingPx + headerHeightPx + headerSpacingPx
-            val horizontalPaddingPx = horizontalPadding.toPx()
-            val timeColumnWidthPx = timeColumnWidth.toPx()
-            val dayColumnWidthPx = dayColumnWidth.toPx()
-            val columnGapPx = columnGap.toPx()
-            val gridHeightPx = gridHeight.toPx()
-            val contentStartXPx = horizontalPaddingPx + timeColumnWidthPx
-            val gridRightXPx = contentStartXPx + gridWidth.toPx()
-            val gridStrokeWidth = TimetableGridLineStroke.toPx()
+            Box(
+                modifier = Modifier
+                    .width(scrollViewportWidth)
+                    .height(containerHeight)
+                    .offset(x = contentStartX)
+                    .horizontalScroll(horizontalScrollState)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(gridWidth)
+                        .height(containerHeight)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val topPaddingPx = topPadding.toPx()
+                        val headerHeightPx = headerHeight.toPx()
+                        val headerSpacingPx = headerSpacing.toPx()
+                        val gridTopPx = topPaddingPx + headerHeightPx + headerSpacingPx
+                        val dayColumnWidthPx = dayColumnWidth.toPx()
+                        val columnGapPx = columnGap.toPx()
+                        val gridHeightPx = gridHeight.toPx()
+                        val gridStrokeWidth = TimetableGridLineStroke.toPx()
 
-            currentState.todayDayOfWeek?.let { todayDayOfWeek ->
-                drawRect(
-                    color = TimetableTodayColumnColor,
-                    topLeft = Offset(
-                        x = contentStartXPx + dayColumnStride.toPx() * todayDayOfWeek.ordinal,
-                        y = gridTopPx
-                    ),
-                    size = androidx.compose.ui.geometry.Size(
-                        width = dayColumnWidthPx,
-                        height = gridHeightPx
-                    )
-                )
+                        currentState.todayDayOfWeek?.let { todayDayOfWeek ->
+                            drawRect(
+                                color = todayColumnColor,
+                                topLeft = Offset(
+                                    x = dayColumnStride.toPx() * todayDayOfWeek.ordinal,
+                                    y = gridTopPx
+                                ),
+                                size = androidx.compose.ui.geometry.Size(
+                                    width = dayColumnWidthPx,
+                                    height = gridHeightPx
+                                )
+                            )
+                        }
+
+                        hourLabels.forEach { labelMinutes ->
+                            val minutesFromStart = (labelMinutes - TIMETABLE_START_MINUTES).toFloat()
+                            val y = gridTopPx + gridHeightPx * (minutesFromStart / totalMinutes)
+                            drawLine(
+                                color = gridLineColor,
+                                start = Offset(0f, y),
+                                end = Offset(gridWidth.toPx(), y),
+                                strokeWidth = gridStrokeWidth
+                            )
+                        }
+
+                        for (index in 1 until dayHeaders.size) {
+                            val x = dayColumnWidthPx * index + columnGapPx * (index - 0.5f)
+                            drawLine(
+                                color = gridLineColor,
+                                start = Offset(x, gridTopPx),
+                                end = Offset(x, gridTopPx + gridHeightPx),
+                                strokeWidth = gridStrokeWidth
+                            )
+                        }
+                    }
+
+                    dayHeaders.forEachIndexed { index, dayOfWeek ->
+                        Box(
+                            modifier = Modifier
+                                .width(dayColumnWidth)
+                                .offset(x = dayColumnStride * index, y = topPadding),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = dayOfWeek.shortLabel,
+                                color = if (currentState.todayDayOfWeek == dayOfWeek) {
+                                    currentIndicatorColor
+                                } else {
+                                    labelColor
+                                },
+                                style = TimetableDayHeaderTextStyle,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    visibleCourses.forEach { course ->
+                        val startMinutes = max(course.startMinutes, TIMETABLE_START_MINUTES)
+                        val endMinutes = max(startMinutes, minOf(course.endMinutes, timetableEndMinutes))
+                        if (endMinutes <= startMinutes) return@forEach
+                        val topOffset = gridTop + TimetableHourHeight * ((startMinutes - TIMETABLE_START_MINUTES) / 60f)
+                        val cardHeight = TimetableHourHeight * ((endMinutes - startMinutes) / 60f)
+                        val xOffset = dayColumnStride * course.dayOfWeek.ordinal
+
+                        TimetableCourseCard(
+                            course = course,
+                            cardHeight = cardHeight,
+                            coursePaletteIndex = coursePaletteIndices[course.subject] ?: 0,
+                            modifier = Modifier
+                                .width(dayColumnWidth)
+                                .height(cardHeight)
+                                .offset(x = xOffset, y = topOffset + 2.dp),
+                            onClick = { onCourseClick(course) }
+                        )
+                    }
+                }
             }
 
             hourLabels.forEach { labelMinutes ->
                 val minutesFromStart = (labelMinutes - TIMETABLE_START_MINUTES).toFloat()
-                val y = gridTopPx + gridHeightPx * (minutesFromStart / totalMinutes)
-                drawLine(
-                    color = TimetableGridLineColor,
-                    start = Offset(contentStartXPx, y),
-                    end = Offset(gridRightXPx, y),
-                    strokeWidth = gridStrokeWidth
-                )
-            }
-
-            for (index in 1 until dayHeaders.size) {
-                val x = contentStartXPx + dayColumnWidthPx * index + columnGapPx * (index - 0.5f)
-                drawLine(
-                    color = TimetableGridLineColor,
-                    start = Offset(x, gridTopPx),
-                    end = Offset(x, gridTopPx + gridHeightPx),
-                    strokeWidth = gridStrokeWidth
-                )
-            }
-        }
-
-        dayHeaders.forEachIndexed { index, dayOfWeek ->
-            Box(
-                modifier = Modifier
-                    .width(dayColumnWidth)
-                    .offset(x = contentStartX + dayColumnStride * index, y = topPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = dayOfWeek.shortLabel,
-                    color = if (currentState.todayDayOfWeek == dayOfWeek) {
-                        TimetableCurrentIndicatorColor
-                    } else {
-                        timeLabelColor
-                    },
-                    style = TimetableDayHeaderTextStyle,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
-            }
-        }
-
-        hourLabels.forEach { labelMinutes ->
-            val minutesFromStart = (labelMinutes - TIMETABLE_START_MINUTES).toFloat()
-            val offsetY = gridTop + gridHeight * (minutesFromStart / totalMinutes)
-            Box(
-                modifier = Modifier
-                    .width(timeColumnWidth)
-                    .offset(x = horizontalPadding, y = offsetY - 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "%02d:00".format(labelMinutes / 60),
-                    color = timeLabelColor,
-                    style = TimetableTimeLabelTextStyle,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
+                val offsetY = gridTop + gridHeight * (minutesFromStart / totalMinutes)
+                Box(
                     modifier = Modifier
-                        .background(TimetableContainerColor)
-                        .padding(horizontal = 1.dp)
-                )
+                        .width(timeColumnWidth)
+                        .offset(x = horizontalPadding, y = offsetY - 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "%02d:00".format(labelMinutes / 60),
+                        color = labelColor,
+                        style = TimetableTimeLabelTextStyle,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .background(timetableSurfaceColor)
+                            .padding(horizontal = 1.dp)
+                    )
+                }
             }
-        }
-
-        visibleCourses.forEach { course ->
-            val startMinutes = max(course.startMinutes, TIMETABLE_START_MINUTES)
-            val endMinutes = max(startMinutes, minOf(course.endMinutes, timetableEndMinutes))
-            if (endMinutes <= startMinutes) return@forEach
-            val topOffset = gridTop + TimetableHourHeight * ((startMinutes - TIMETABLE_START_MINUTES) / 60f)
-            val cardHeight = TimetableHourHeight * ((endMinutes - startMinutes) / 60f)
-            val xOffset = contentStartX + dayColumnStride * course.dayOfWeek.ordinal
-
-            TimetableCourseCard(
-                course = course,
-                cardHeight = cardHeight,
-                coursePaletteIndex = coursePaletteIndices[course.subject] ?: 0,
-                modifier = Modifier
-                    .width(dayColumnWidth)
-                    .height(cardHeight)
-                    .offset(x = xOffset, y = topOffset + 2.dp),
-                onClick = { onCourseClick(course) }
-            )
         }
     }
 }
@@ -661,12 +721,16 @@ private fun TimetableCourseCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coursePalette = TimetableCoursePalettes.getOrElse(coursePaletteIndex) {
-        TimetableCoursePalettes.first()
-    }
+    val coursePalette = getTimetableCoursePalette(
+        paletteIndex = coursePaletteIndex,
+        isDarkTheme = isSystemInDarkTheme()
+    )
     val classroomDisplay = splitClassroom(course.classroom)
     val cardContentSpec = buildCourseCardContentSpec(cardHeight)
-    val locationLines = classroomDisplay.toCardLocationLines(isCompactCard = cardContentSpec.isCompact)
+    val locationLines = buildCourseCardLocationLines(
+        classroomDisplay = classroomDisplay,
+        cardContentSpec = cardContentSpec
+    )
     val titleFontSpec = courseTitleFontSpec(course.subject)
 
     Box(
@@ -1086,6 +1150,14 @@ internal fun buildTimetableCoursePaletteIndices(
         .toMap()
 }
 
+internal fun getTimetableCoursePalette(
+    paletteIndex: Int,
+    isDarkTheme: Boolean
+): TimetableCoursePalette {
+    val palettes = if (isDarkTheme) TimetableDarkCoursePalettes else TimetableCoursePalettes
+    return palettes.getOrElse(paletteIndex) { palettes.first() }
+}
+
 internal fun courseTitleFontSize(subject: String) = when (subject.trim().length) {
     in 0..8 -> 9.5.sp
     in 9..13 -> 8.5.sp
@@ -1157,14 +1229,14 @@ private fun String?.toInstantOrNull(): Instant? {
     return runCatching { Instant.parse(trimmedValue) }.getOrNull()
 }
 
-private fun DayOfWeek.toTimetableDayOfWeekOrNull(): TimetableDayOfWeek? {
+internal fun DayOfWeek.toTimetableDayOfWeekOrNull(): TimetableDayOfWeek? {
     return when (this) {
         DayOfWeek.MONDAY -> TimetableDayOfWeek.MONDAY
         DayOfWeek.TUESDAY -> TimetableDayOfWeek.TUESDAY
         DayOfWeek.WEDNESDAY -> TimetableDayOfWeek.WEDNESDAY
         DayOfWeek.THURSDAY -> TimetableDayOfWeek.THURSDAY
         DayOfWeek.FRIDAY -> TimetableDayOfWeek.FRIDAY
-        DayOfWeek.SATURDAY,
+        DayOfWeek.SATURDAY -> TimetableDayOfWeek.SATURDAY
         DayOfWeek.SUNDAY -> null
     }
 }
@@ -1185,6 +1257,7 @@ private fun TimetableDayOfWeek.toDisplayDayLabel(): String {
         TimetableDayOfWeek.WEDNESDAY -> "수요일"
         TimetableDayOfWeek.THURSDAY -> "목요일"
         TimetableDayOfWeek.FRIDAY -> "금요일"
+        TimetableDayOfWeek.SATURDAY -> "토요일"
     }
 }
 
@@ -1203,7 +1276,7 @@ private fun Int.toTimeText(): String {
     return "%02d:%02d".format(hour, minute)
 }
 
-private data class TimetableCoursePalette(
+internal data class TimetableCoursePalette(
     val backgroundColor: Color,
     val textColor: Color
 )
@@ -1248,6 +1321,15 @@ internal fun buildCourseCardContentSpec(cardHeight: Dp): TimetableCourseCardCont
             isCompact = false
         )
     }
+}
+
+internal fun buildCourseCardLocationLines(
+    classroomDisplay: ClassroomDisplay,
+    cardContentSpec: TimetableCourseCardContentSpec
+): List<String> {
+    return classroomDisplay
+        .toCardLocationLines(isCompactCard = cardContentSpec.isCompact)
+        .take(cardContentSpec.locationLineCount)
 }
 
 private fun ClassroomDisplay.toCardLocationLines(isCompactCard: Boolean): List<String> {

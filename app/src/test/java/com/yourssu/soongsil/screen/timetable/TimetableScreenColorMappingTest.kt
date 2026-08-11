@@ -1,5 +1,6 @@
 package com.yourssu.soongsil.screen.timetable
 
+import androidx.compose.ui.graphics.Color
 import com.yourssu.data.timetable.TimetableCourse
 import com.yourssu.data.timetable.TimetableDayOfWeek
 import org.junit.Assert.assertEquals
@@ -34,6 +35,31 @@ class TimetableScreenColorMappingTest {
 
         assertEquals(result["자료구조"], shuffledResult["자료구조"])
         assertEquals(result["운영체제"], shuffledResult["운영체제"])
+    }
+
+    @Test
+    fun getTimetableCoursePalette_usesDarkFigmaPalette() {
+        val expectedPalettes = listOf(
+            TimetableCoursePalette(Color(0xFF2563EB).copy(alpha = 0.28f), Color(0xFF93C5FD)),
+            TimetableCoursePalette(Color(0xFFD97706).copy(alpha = 0.28f), Color(0xFFFDBA74)),
+            TimetableCoursePalette(Color(0xFF059669).copy(alpha = 0.28f), Color(0xFF6EE7B7)),
+            TimetableCoursePalette(Color(0xFF7C3AED).copy(alpha = 0.28f), Color(0xFFD8B4FE)),
+            TimetableCoursePalette(Color(0xFFDC2626).copy(alpha = 0.28f), Color(0xFFFCA5A5)),
+            TimetableCoursePalette(Color(0xFF0891B2).copy(alpha = 0.28f), Color(0xFF67E8F9)),
+            TimetableCoursePalette(Color(0xFFCA8A04).copy(alpha = 0.28f), Color(0xFFFDE68A)),
+            TimetableCoursePalette(Color(0xFF4F46E5).copy(alpha = 0.28f), Color(0xFFA5B4FC)),
+            TimetableCoursePalette(Color(0xFFDB2777).copy(alpha = 0.28f), Color(0xFFF9A8D4)),
+            TimetableCoursePalette(Color(0xFF475569).copy(alpha = 0.28f), Color(0xFFCBD5E1))
+        )
+
+        val actualPalettes = expectedPalettes.indices.map { paletteIndex ->
+            getTimetableCoursePalette(
+                paletteIndex = paletteIndex,
+                isDarkTheme = true
+            )
+        }
+
+        assertEquals(expectedPalettes, actualPalettes)
     }
 
     private fun createCourse(

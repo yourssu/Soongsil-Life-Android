@@ -148,13 +148,13 @@ private fun TimetableCell.toTimetableCourse(): TimetableCourse? {
     )
 }
 
-private fun LmsDayOfWeek.toTimetableDayOfWeek(): TimetableDayOfWeek? = when (this) {
+internal fun LmsDayOfWeek.toTimetableDayOfWeek(): TimetableDayOfWeek? = when (this) {
     LmsDayOfWeek.MONDAY -> TimetableDayOfWeek.MONDAY
     LmsDayOfWeek.TUESDAY -> TimetableDayOfWeek.TUESDAY
     LmsDayOfWeek.WEDNESDAY -> TimetableDayOfWeek.WEDNESDAY
     LmsDayOfWeek.THURSDAY -> TimetableDayOfWeek.THURSDAY
     LmsDayOfWeek.FRIDAY -> TimetableDayOfWeek.FRIDAY
-    LmsDayOfWeek.SATURDAY,
+    LmsDayOfWeek.SATURDAY -> TimetableDayOfWeek.SATURDAY
     LmsDayOfWeek.SUNDAY -> null
 }
 

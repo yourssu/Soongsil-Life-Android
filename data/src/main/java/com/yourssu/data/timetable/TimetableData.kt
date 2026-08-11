@@ -65,5 +65,6 @@ enum class TimetableDayOfWeek(val shortLabel: String, val fullLabel: String) {
     TUESDAY("화", "화요일"),
     WEDNESDAY("수", "수요일"),
     THURSDAY("목", "목요일"),
-    FRIDAY("금", "금요일");
+    FRIDAY("금", "금요일"),
+    SATURDAY("토", "토요일");
 }
