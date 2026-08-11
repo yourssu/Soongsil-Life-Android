@@ -786,7 +786,7 @@ private fun TimetableCourseDetailBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { TimetableBottomSheetDragHandle() }
     ) {
         Column(
@@ -798,14 +798,14 @@ private fun TimetableCourseDetailBottomSheet(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = course.subject.ifBlank { "과목 정보 없음" },
-                    color = Color(0xFF0A0A0A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     style = TimetableBottomSheetTitleTextStyle,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = course.professor.toProfessorDisplayName(),
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = TimetableBottomSheetProfessorTextStyle
                 )
             }
@@ -830,7 +830,7 @@ private fun TimetableCourseDetailBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 elevation = ButtonDefaults.buttonElevation(
                     defaultElevation = 0.dp,
@@ -862,13 +862,13 @@ private fun TimetableDetailRow(
         Text(
             text = label,
             modifier = Modifier.width(64.dp),
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = TimetableBottomSheetLabelTextStyle
         )
         Text(
             text = value,
             modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF0A0A0A),
+            color = MaterialTheme.colorScheme.onSurface,
             style = TimetableBottomSheetValueTextStyle,
             textAlign = TextAlign.End,
             maxLines = 2,
@@ -885,7 +885,7 @@ private fun TimetableBottomSheetDragHandle() {
             .width(40.dp)
             .height(4.dp)
             .clip(RoundedCornerShape(50))
-            .background(Color(0xFFD1D5DB))
+            .background(MaterialTheme.colorScheme.onSurfaceVariant)
     )
 }
 
@@ -906,7 +906,7 @@ private fun TimetableTermSelectionBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { TimetableBottomSheetDragHandle() }
     ) {
         Column(
@@ -918,7 +918,7 @@ private fun TimetableTermSelectionBottomSheet(
         ) {
             Text(
                 text = "학기 선택",
-                color = Color(0xFF0A0A0A),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -955,8 +955,8 @@ private fun TimetableTermSelectionBottomSheet(
                         .height(48.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE5E7EB),
-                        contentColor = Color(0xFF0A0A0A)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     elevation = ButtonDefaults.buttonElevation(
                         defaultElevation = 0.dp,
@@ -982,7 +982,7 @@ private fun TimetableTermSelectionBottomSheet(
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = Color.White
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     elevation = ButtonDefaults.buttonElevation(
                         defaultElevation = 0.dp,
@@ -1013,7 +1013,7 @@ private fun TimetableTermSelectionLoadingState() {
         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         Text(
             text = "수강 학기 정보를 불러오는 중입니다.",
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             textAlign = TextAlign.Center
         )
@@ -1032,14 +1032,14 @@ private fun TimetableTermSelectionUnavailableState(
     ) {
         Text(
             text = "조회 가능한 학기가 없습니다",
-            color = Color(0xFF0A0A0A),
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Text(
             text = message,
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 20.sp,
             textAlign = TextAlign.Center
@@ -1058,7 +1058,7 @@ private fun TimetableTermSection(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = title,
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
         )
@@ -1079,7 +1079,7 @@ private fun TimetableTermOption(
         color = if (isSelected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         } else {
-            Color(0xFFF2F4F6)
+            MaterialTheme.colorScheme.surfaceVariant
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -1087,7 +1087,7 @@ private fun TimetableTermOption(
     ) {
         Text(
             text = text,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF0A0A0A),
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontSize = 14.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
@@ -1591,6 +1591,7 @@ private fun TimetableErrorPreview() {
 }
 
 @Preview(name = "Timetable Sheet", showBackground = true, widthDp = 402)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
 @Composable
 private fun TimetableBottomSheetPreview() {
     SoongsilLifeAndroidTheme {
@@ -1692,6 +1693,7 @@ private fun TimetableNoTermsPreview() {
 }
 
 @Preview(name = "Timetable Term Sheet", showBackground = true, widthDp = 402)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
 @Composable
 private fun TimetableTermSelectionBottomSheetPreview() {
     SoongsilLifeAndroidTheme {
