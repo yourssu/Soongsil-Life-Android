@@ -2,8 +2,10 @@ package com.yourssu.soongsil.screen.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourssu.data.dashboard.AdvertisementData
 import com.yourssu.data.dashboard.DashboardData
 import com.yourssu.data.dashboard.DashboardRefreshStep
+import com.yourssu.soongsil.data.AdvertisementRepository
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val lmsAuthRepository: LmsAuthRepository,
-    private val dashboardRepository: DashboardRepository
+    private val dashboardRepository: DashboardRepository,
+    private val advertisementRepository: AdvertisementRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -30,6 +33,7 @@ class DashboardViewModel @Inject constructor(
         val loginRequired: Boolean = false,
         val error: String? = null,
         val dashboardData: DashboardData? = null,
+        val advertisement: AdvertisementData? = null,
         val refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.LOADING,
         val refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
         val isPullRefreshing: Boolean = false
@@ -39,6 +43,14 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loginWithSavedCredentials()
+        loadAdvertisement()
+    }
+
+    private fun loadAdvertisement() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val advertisement = advertisementRepository.getAdvertisement().getOrNull()
+            _uiState.update { it.copy(advertisement = advertisement) }
+        }
     }
 
     fun onLoginNavigationHandled() {

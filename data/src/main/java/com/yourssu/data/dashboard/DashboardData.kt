@@ -1,6 +1,14 @@
 package com.yourssu.data.dashboard
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+@Serializable
+data class AdvertisementData(
+    @SerialName("image_url") val imageUrl: String,
+    val link: String,
+    val success: Boolean
+)
 
 @Serializable
 data class DashboardData(

@@ -19,8 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.yourssu.data.dashboard.AdvertisementData
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.data.dashboard.DashboardSemesterGrade
+import com.yourssu.soongsil.screen.dashboard.components.AdvertisementBanner
 import com.yourssu.soongsil.screen.dashboard.components.ChapelAttendanceCard
 import com.yourssu.soongsil.screen.dashboard.components.ChapelSeatCard
 import com.yourssu.soongsil.screen.dashboard.components.DashboardQuickLinks
@@ -57,9 +59,22 @@ private fun DashboardScreenPreview() {
             chapelLate = 0,
             chapelAbsent = 1,
             chapelProgress = 0.625f,
+            advertisement = AdvertisementData(
+                imageUrl = "https://example.com/banner.png",
+                link = "https://example.com",
+                success = true
+            ),
             refreshStatus = DashboardRefreshStatus.LOADING,
             refreshStep = DashboardRefreshStep.GRADES
         )
+    }
+}
+
+@Composable
+@Preview(name = "광고 미표시")
+private fun DashboardScreenWithoutAdvertisementPreview() {
+    SoongsilLifeAndroidTheme {
+        DashboardScreen()
     }
 }
 
@@ -87,6 +102,7 @@ fun DashboardScreen(
     chapelLate: Int = 0,
     chapelAbsent: Int = 0,
     chapelProgress: Float = 0f,
+    advertisement: AdvertisementData? = null,
     refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.HIDDEN,
     refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
     refreshErrorMessage: String? = null,
@@ -97,7 +113,8 @@ fun DashboardScreen(
     onChartDetailClick: () -> Unit = {},
     onChapelClick: () -> Unit = {},
     onGraduateClick: () -> Unit = {},
-    onScholarshipClick: () -> Unit = {}
+    onScholarshipClick: () -> Unit = {},
+    onAdvertisementClick: (String) -> Unit = {}
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
     val bottomBarPadding = LocalMainBottomBarPadding.current
@@ -189,6 +206,12 @@ fun DashboardScreen(
                             onGraduateClick = onGraduateClick,
                             onScholarshipClick = onScholarshipClick
                         )
+                        advertisement?.takeIf { it.success }?.let {
+                            AdvertisementBanner(
+                                imageUrl = it.imageUrl,
+                                onClick = { onAdvertisementClick(it.link) }
+                            )
+                        }
                     }
                 }
 

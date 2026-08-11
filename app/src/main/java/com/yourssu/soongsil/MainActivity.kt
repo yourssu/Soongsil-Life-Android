@@ -1,5 +1,7 @@
 package com.yourssu.soongsil
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -26,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -137,6 +140,7 @@ class MainActivity : ComponentActivity() {
                             val viewModel: DashboardViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
                             val dashboardData = uiState.dashboardData
+                            val context = LocalContext.current
 
                             LaunchedEffect(uiState.loginRequired) {
                                 if (uiState.loginRequired) {
@@ -163,6 +167,7 @@ class MainActivity : ComponentActivity() {
                                 chapelLate = dashboardData?.chapel?.late ?: 0,
                                 chapelAbsent = dashboardData?.chapel?.absent ?: 0,
                                 chapelProgress = dashboardData?.chapel?.progress ?: 0f,
+                                advertisement = uiState.advertisement,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
                                 refreshErrorMessage = uiState.error,
@@ -173,7 +178,12 @@ class MainActivity : ComponentActivity() {
                                 onChartDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },
-                                onScholarshipClick = { navController.navigate(Scholarship) }
+                                onScholarshipClick = { navController.navigate(Scholarship) },
+                                onAdvertisementClick = { link ->
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(link))
+                                    )
+                                }
                             )
                         }
                         composable<Grade> {

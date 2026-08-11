@@ -51,6 +51,8 @@ dependencies {
     implementation("androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0")
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
+    implementation("io.coil-kt.coil3:coil-compose:3.5.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
 
     // Jetpack Compose integration
     implementation(libs.androidx.navigation.compose)
