@@ -3,6 +3,7 @@ package com.yourssu.soongsil.screen.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.OnBoardingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val lmsAuthRepository: LmsAuthRepository
+    private val lmsAuthRepository: LmsAuthRepository,
+    private val onBoardingRepository: OnBoardingRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -38,8 +40,13 @@ class LoginViewModel @Inject constructor(
                 .onSuccess {
                     lmsAuthRepository.saveCredentials(trimmedStudentId, password)
                         .onSuccess {
+                            val onboardingRequired = !onBoardingRepository.hasAgreedToTerms()
                             _uiState.update {
-                                it.copy(isLoading = false, isLoginSuccessful = true)
+                                it.copy(
+                                    isLoading = false,
+                                    isLoginSuccessful = true,
+                                    isOnboardingRequired = onboardingRequired
+                                )
                             }
                         }
                         .onFailure {
@@ -61,6 +68,7 @@ class LoginViewModel @Inject constructor(
     data class LoginUiState(
         val isLoading: Boolean = false,
         val isLoginSuccessful: Boolean = false,
+        val isOnboardingRequired: Boolean = false,
         val error: String? = null
     )
 
