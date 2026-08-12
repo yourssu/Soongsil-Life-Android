@@ -83,7 +83,7 @@ class LmsAuthRepository @Inject constructor(
 
     suspend fun logout(): Result<Unit> = runCatching {
         clearCredentials()
-        LmsApi.logout {}
+        LmsApi.logout {  }
     }
 
     private suspend fun clearCredentials() {
