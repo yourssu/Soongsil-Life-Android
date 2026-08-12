@@ -43,6 +43,8 @@ import com.yourssu.data.nav.Graduate
 import com.yourssu.data.nav.Keep
 import com.yourssu.data.nav.Login
 import com.yourssu.data.nav.MyPage
+import com.yourssu.data.nav.OnBoardingComplete
+import com.yourssu.data.nav.OnBoardingTerms
 import com.yourssu.data.nav.PushNotifications
 import com.yourssu.data.nav.Scholarship
 import com.yourssu.data.nav.Timetable
@@ -61,6 +63,8 @@ import com.yourssu.soongsil.screen.mypage.MyPageViewModel
 import com.yourssu.soongsil.screen.plan.PlanErrorDialog
 import com.yourssu.soongsil.screen.plan.PlanLoadingDialog
 import com.yourssu.soongsil.screen.plan.PlanPdfScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
@@ -85,7 +89,11 @@ class MainActivity : ComponentActivity() {
                     .value
                     ?.destination
                     ?.route
-                val showBottomBar = currentRoute != null && currentRoute != Login::class.qualifiedName
+                val showBottomBar = currentRoute !in setOf(
+                    Login::class.qualifiedName,
+                    OnBoardingTerms::class.qualifiedName,
+                    OnBoardingComplete::class.qualifiedName
+                )
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
@@ -131,7 +139,12 @@ class MainActivity : ComponentActivity() {
 
                             LaunchedEffect(uiState.isLoginSuccessful) {
                                 if (uiState.isLoginSuccessful) {
-                                    navController.navigate(Dashboard) {
+                                    val destination = if (uiState.isOnboardingRequired) {
+                                        OnBoardingTerms
+                                    } else {
+                                        Dashboard
+                                    }
+                                    navController.navigate(destination) {
                                         popUpTo<Login> { inclusive = true }
                                         launchSingleTop = true
                                     }
@@ -143,6 +156,26 @@ class MainActivity : ComponentActivity() {
                                 isLoading = uiState.isLoading,
                                 errorMessage = uiState.error,
                                 onLoginClick = viewModel::login
+                            )
+                        }
+                        composable<OnBoardingTerms> {
+                            OnBoardingScreen(
+                                onTermsAgreementCompleted = {
+                                    navController.navigate(OnBoardingComplete) {
+                                        popUpTo<OnBoardingTerms> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                        composable<OnBoardingComplete> {
+                            OnBoardingCompleteScreen(
+                                onStartClick = {
+                                    navController.navigate(Dashboard) {
+                                        popUpTo<OnBoardingComplete> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                         composable<Dashboard> {
