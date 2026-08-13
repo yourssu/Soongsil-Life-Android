@@ -61,11 +61,11 @@ import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
 import com.yourssu.soongsil.screen.mypage.MyPageViewModel
+import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.plan.PlanErrorDialog
 import com.yourssu.soongsil.screen.plan.PlanLoadingDialog
 import com.yourssu.soongsil.screen.plan.PlanPdfScreen
-import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
-import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
@@ -76,8 +76,7 @@ import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.runtime.mutableStateOf
-import com.yourssu.data.dashboard.DashboardChapelData
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,7 +96,8 @@ class MainActivity : ComponentActivity() {
                 val showBottomBar = currentRoute !in setOf(
                     Login::class.qualifiedName,
                     OnBoardingTerms::class.qualifiedName,
-                    OnBoardingComplete::class.qualifiedName
+                    OnBoardingComplete::class.qualifiedName,
+                    Graduate::class.qualifiedName
                 )
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE

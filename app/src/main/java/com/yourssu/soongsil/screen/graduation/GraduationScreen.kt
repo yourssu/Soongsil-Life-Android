@@ -3,30 +3,38 @@ package com.yourssu.soongsil.screen.graduation
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +44,7 @@ import com.yourssu.data.graduation.GraduationData
 import com.yourssu.data.graduation.GraduationRequirementItem
 import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
+import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
@@ -85,7 +94,8 @@ private val previewFailData = GraduationData(
             standardValue = "12",
             calculatedValue = "15.0",
             difference = "+3.0",
-            result = "충족"
+            result = "충족",
+            usedSubjects = listOf("컴퓨팅적사고", "글로벌시민의식")
         ),
         GraduationRequirementItem(
             classification = "교양선택",
@@ -127,7 +137,8 @@ private val previewFailData = GraduationData(
             standardValue = "66",
             calculatedValue = "61.0",
             difference = "-5.0",
-            result = "부족"
+            result = "부족",
+            usedSubjects = listOf("자료구조", "알고리즘", "운영체제", "소프트웨어공학")
         ),
         GraduationRequirementItem(
             classification = "채플",
@@ -179,6 +190,14 @@ private fun GraduationScreenErrorPreview() {
             onBackClick = {},
             onRetryClick = {}
         )
+    }
+}
+
+@Composable
+@Preview(name = "과목 상세 펼침 - Light")
+private fun GraduationDetailsPreview() {
+    SoongsilLifeAndroidTheme {
+        GraduationContent(data = previewFailData, initialShowDetails = true)
     }
 }
 
@@ -249,13 +268,14 @@ private fun GraduationErrorState(
             Text(
                 text = message,
                 fontSize = 14.sp,
+                fontFamily = PretendardFontFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(
                 onClick = onRetryClick,
                 modifier = Modifier.padding(top = 12.dp)
             ) {
-                Text(text = "다시 시도")
+                Text(text = "다시 시도", fontFamily = PretendardFontFamily)
             }
         }
     }
@@ -267,10 +287,12 @@ private fun GraduationContent(
     modifier: Modifier = Modifier,
     data: GraduationData = GraduationData(),
     onBackClick: () -> Unit = {},
-    onDetailClick: () -> Unit = {}
+    onDetailClick: () -> Unit = {},
+    initialShowDetails: Boolean = false
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
     val groupedItems = data.items.groupBy { it.classification }
+    var showSubjectDetails by rememberSaveable { mutableStateOf(initialShowDetails) }
 
     Box(
         modifier = modifier
@@ -288,19 +310,24 @@ private fun GraduationContent(
                     .padding(
                         start = 20.dp,
                         end = 20.dp,
-                        top = 8.dp,
-                        bottom = 16.dp + bottomBarPadding
+                        top = 20.dp,
+                        bottom = 20.dp + bottomBarPadding
                     ),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(11.dp)
             ) {
                 GraduationSummaryCard(
                     overallResult = data.overallResult,
-                    onDetailClick = onDetailClick
+                    showSubjectDetails = showSubjectDetails,
+                    onDetailClick = {
+                        showSubjectDetails = !showSubjectDetails
+                        onDetailClick()
+                    }
                 )
                 groupedItems.forEach { (classification, items) ->
                     GraduationSection(
                         title = classification,
-                        items = items
+                        items = items,
+                        showSubjectDetails = showSubjectDetails
                     )
                 }
             }
@@ -313,28 +340,39 @@ private fun GraduationHeader(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val titleColor = if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.onBackground
+    } else {
+        SoongsilPalette.Navy900
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .padding(horizontal = 20.dp)
+            .height(56.dp)
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_caret_left),
             contentDescription = "뒤로가기",
             modifier = Modifier
                 .align(Alignment.CenterStart)
+                .padding(start = 20.dp)
                 .size(24.dp)
                 .clickable { onBackClick() },
-            tint = MaterialTheme.colorScheme.onBackground
+            tint = titleColor
         )
         Text(
             text = "졸업사정표",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            letterSpacing = (-0.4).sp,
+            fontSize = 17.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            fontFamily = PretendardFontFamily,
+            color = titleColor,
+            letterSpacing = 0.sp,
             modifier = Modifier.align(Alignment.Center)
+        )
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
@@ -342,6 +380,7 @@ private fun GraduationHeader(
 @Composable
 private fun GraduationSummaryCard(
     overallResult: String,
+    showSubjectDetails: Boolean,
     onDetailClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -349,33 +388,56 @@ private fun GraduationSummaryCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .height(58.5.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "졸업사정결과 · ",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontFamily = PretendardFontFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = overallResult,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isPass) SoongsilPalette.Green500 else MaterialTheme.colorScheme.error
+                lineHeight = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = PretendardFontFamily,
+                color = if (isPass) SoongsilPalette.Green500 else SoongsilPalette.Red400
             )
         }
-        Button(
-            onClick = onDetailClick,
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
+        Box(
+            modifier = Modifier
+                .width(if (showSubjectDetails) 99.5.dp else 89.dp)
+                .height(30.5.dp)
+                .background(
+                    if (isSystemInDarkTheme()) {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    } else {
+                        SoongsilPalette.Gray175
+                    },
+                    RoundedCornerShape(100.dp)
+                )
+                .clickable(onClick = onDetailClick),
+            contentAlignment = Alignment.Center
         ) {
-            Text(text = "과목상세 보기", fontSize = 13.sp)
+            Text(
+                text = if (showSubjectDetails) "과목상세 숨기기" else "과목상세 보기",
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = PretendardFontFamily,
+                color = if (isSystemInDarkTheme()) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    SoongsilPalette.Gray950
+                }
+            )
         }
     }
 }
@@ -384,24 +446,37 @@ private fun GraduationSummaryCard(
 private fun GraduationSection(
     title: String,
     items: List<GraduationRequirementItem>,
+    showSubjectDetails: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Text(
             text = title,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.ExtraBold,
+            fontFamily = PretendardFontFamily,
             color = MaterialTheme.colorScheme.primary
         )
-        // 항목 사이 여백은 Column의 spacedBy로 처리됩니다.
+        Spacer(modifier = Modifier.height(7.5.dp))
         items.forEach { item ->
-            GraduationRequirementRow(item = item)
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = if (isSystemInDarkTheme()) {
+                    MaterialTheme.colorScheme.outlineVariant
+                } else {
+                    SoongsilPalette.Gray190
+                }
+            )
+            GraduationRequirementRow(
+                item = item,
+                showSubjectDetails = showSubjectDetails
+            )
         }
     }
 }
@@ -409,46 +484,115 @@ private fun GraduationSection(
 @Composable
 private fun GraduationRequirementRow(
     item: GraduationRequirementItem,
+    showSubjectDetails: Boolean,
     modifier: Modifier = Modifier
 ) {
     val isPass = item.result.isPassResult()
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    val hasCalculation = item.standardValue.isNotBlank() || item.calculatedValue.isNotBlank()
+    val usedSubjects = item.usedSubjects.filter { it.isNotBlank() }.distinct()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (hasCalculation) 53.5.dp else 35.dp)
+                .padding(top = 8.dp)
         ) {
-            Text(
-                text = item.requirement,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-            ResultBadge(isPass = isPass, text = item.result)
-        }
-        // 기준/계산값이 있는 항목만 서브텍스트를 보여줍니다.
-        if (item.standardValue.isNotBlank() || item.calculatedValue.isNotBlank()) {
-            Row(modifier = Modifier.padding(top = 4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "기준 ${item.standardValue} · 계산 ${item.calculatedValue}",
+                    text = item.requirement,
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.secondary
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = PretendardFontFamily,
+                    color = if (isSystemInDarkTheme()) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        SoongsilPalette.Gray950
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 )
-                if (item.difference.isNotBlank()) {
+                ResultBadge(isPass = isPass, text = item.result)
+            }
+            // 기준/계산값이 있는 항목만 서브텍스트를 보여줍니다.
+            if (hasCalculation) {
+                Row(modifier = Modifier.padding(top = 4.dp)) {
                     Text(
-                        text = " · ${item.difference}",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (item.difference.startsWith("-")) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            SoongsilPalette.Green500
-                        }
+                        text = "기준 ${item.standardValue} · 계산 ${item.calculatedValue}",
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontFamily = PretendardFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (item.difference.isNotBlank()) {
+                        Text(
+                            text = " · ${item.difference}",
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = PretendardFontFamily,
+                            color = if (item.difference.startsWith("-")) {
+                                SoongsilPalette.Red400
+                            } else {
+                                SoongsilPalette.Green400
+                            }
+                        )
+                    }
                 }
             }
         }
+
+        if (showSubjectDetails && usedSubjects.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                usedSubjects.forEach { subject ->
+                    UsedSubjectBadge(subject = subject)
+                }
+            }
+        }
+    }
+}
+
+// 해당 졸업 요건 계산에 사용된 과목명을 작은 배지로 표시합니다.
+@Composable
+private fun UsedSubjectBadge(
+    subject: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(21.dp)
+            .background(
+                color = SoongsilPalette.Gray175,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = subject,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Normal,
+            fontFamily = PretendardFontFamily,
+            color = SoongsilPalette.Slate500,
+            maxLines = 1
+        )
     }
 }
 
@@ -458,17 +602,19 @@ private fun ResultBadge(
     text: String,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isPass) SoongsilPalette.Green50 else MaterialTheme.colorScheme.errorContainer
-    val textColor = if (isPass) SoongsilPalette.Green500 else MaterialTheme.colorScheme.error
+    val backgroundColor = if (isPass) SoongsilPalette.Green50 else SoongsilPalette.Red50
+    val textColor = if (isPass) SoongsilPalette.Green500 else SoongsilPalette.Red600
     Box(
         modifier = modifier
-            .background(backgroundColor, RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .background(backgroundColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = PretendardFontFamily,
             color = textColor
         )
     }
