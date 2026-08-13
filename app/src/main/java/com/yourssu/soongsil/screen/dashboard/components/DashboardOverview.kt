@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -125,38 +126,67 @@ fun DashboardGradeSection(
     semesterRank: String,
     totalRank: String,
     semesterGrades: List<DashboardSemesterGrade>,
+    showSensitiveData: Boolean,
     showGraphData: Boolean,
+    sensitiveDataAlpha: Float,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = gpa,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontFamily = PretendardFontFamily,
-                fontSize = 40.sp,
-                lineHeight = 56.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.16.sp
-            )
-            Text(
-                text = "/ $maxGpa",
-                modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
-                color = SoongsilPalette.Slate400,
-                fontFamily = PretendardFontFamily,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
+        if (showSensitiveData) {
+            Row(
+                modifier = Modifier.alpha(sensitiveDataAlpha),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = gpa,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontFamily = PretendardFontFamily,
+                    fontSize = 40.sp,
+                    lineHeight = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.16.sp
+                )
+                Text(
+                    text = "/ $maxGpa",
+                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+                    color = SoongsilPalette.Slate400,
+                    fontFamily = PretendardFontFamily,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        } else {
+            // 구형 기기에서 블러가 지원되지 않아도 실제 GPA가 Compose 트리에 생성되지 않습니다.
+            Spacer(modifier = Modifier.height(56.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        DashboardGradeMetric("취득 학점", earnedCredits, requiredCredits)
-        DashboardGradeMetric("학기별 석차", semesterRank.substringBefore("/"), semesterRank.substringAfter("/", ""))
-        DashboardGradeMetric("전체 석차", totalRank.substringBefore("/"), totalRank.substringAfter("/", ""))
+        DashboardGradeMetric(
+            "취득 학점",
+            earnedCredits,
+            requiredCredits,
+            showSensitiveData,
+            sensitiveDataAlpha
+        )
+        DashboardGradeMetric(
+            "학기별 석차",
+            semesterRank.substringBefore("/"),
+            semesterRank.substringAfter("/", ""),
+            showSensitiveData,
+            sensitiveDataAlpha
+        )
+        DashboardGradeMetric(
+            "전체 석차",
+            totalRank.substringBefore("/"),
+            totalRank.substringAfter("/", ""),
+            showSensitiveData,
+            sensitiveDataAlpha
+        )
 
         DashboardGpaLineChart(
             grades = semesterGrades,
             showData = showGraphData,
+            dataAlpha = sensitiveDataAlpha,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 20.dp)
@@ -188,7 +218,13 @@ fun DashboardGradeDetailButton(
 }
 
 @Composable
-private fun DashboardGradeMetric(label: String, value: String, total: String) {
+private fun DashboardGradeMetric(
+    label: String,
+    value: String,
+    total: String,
+    showValue: Boolean,
+    valueAlpha: Float
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -204,25 +240,36 @@ private fun DashboardGradeMetric(label: String, value: String, total: String) {
             lineHeight = 21.sp,
             fontWeight = FontWeight.Medium
         )
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = value,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontFamily = PretendardFontFamily,
-                fontSize = 16.sp,
-                lineHeight = 21.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (total.isNotBlank()) {
+        if (showValue) {
+            Row(
+                modifier = Modifier.alpha(valueAlpha),
+                verticalAlignment = Alignment.Bottom
+            ) {
                 Text(
-                    text = " / $total",
-                    color = SoongsilPalette.Slate400,
+                    text = value,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontFamily = PretendardFontFamily,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
+                if (total.isNotBlank()) {
+                    Text(
+                        text = " / $total",
+                        color = SoongsilPalette.Slate400,
+                        fontFamily = PretendardFontFamily,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
+        } else {
+            Spacer(
+                modifier = Modifier
+                    .width(64.dp)
+                    .height(21.dp)
+            )
         }
     }
 }
@@ -231,6 +278,7 @@ private fun DashboardGradeMetric(label: String, value: String, total: String) {
 private fun DashboardGpaLineChart(
     grades: List<DashboardSemesterGrade>,
     showData: Boolean,
+    dataAlpha: Float,
     modifier: Modifier = Modifier
 ) {
     val points = grades.takeLast(8)
@@ -268,7 +316,10 @@ private fun DashboardGpaLineChart(
                     val xGap = if (points.size == 1) 0f else size.width / (points.size - 1)
                     val offsets = points.mapIndexed { index, grade ->
                         val value = (grade.gpa.toFloatOrNull() ?: 0f).coerceIn(1f, 4.5f)
-                        Offset(index * xGap, size.height * (4.5f - value) / 3.5f)
+                        val targetY = size.height * (4.5f - value) / 3.5f
+                        // 공개 애니메이션 진행에 맞춰 각 점을 그래프 바닥에서 실제 위치까지 올립니다.
+                        val animatedY = size.height + (targetY - size.height) * dataAlpha
+                        Offset(index * xGap, animatedY)
                     }
                     val linePath = Path().apply {
                         moveTo(offsets.first().x, offsets.first().y)
@@ -280,9 +331,15 @@ private fun DashboardGpaLineChart(
                         lineTo(offsets.first().x, size.height)
                         close()
                     }
-                    drawPath(areaPath, lineColor.copy(alpha = 0.18f))
-                    drawPath(linePath, lineColor, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-                    offsets.forEach { drawCircle(lineColor, 3.dp.toPx(), it) }
+                    drawPath(areaPath, lineColor.copy(alpha = 0.18f * dataAlpha))
+                    drawPath(
+                        linePath,
+                        lineColor.copy(alpha = dataAlpha),
+                        style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    offsets.forEach {
+                        drawCircle(lineColor.copy(alpha = dataAlpha), 3.dp.toPx(), it)
+                    }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth()) {

@@ -1,6 +1,9 @@
 package com.yourssu.soongsil.screen.dashboard
 
 import android.content.res.Configuration
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -20,6 +23,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -119,6 +123,17 @@ fun DashboardScreen(
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
     val bottomBarPadding = LocalMainBottomBarPadding.current
+    // 성적 공개 시 블러와 실제 데이터를 함께 서서히 표시합니다.
+    val gradeBlurRadius by animateDpAsState(
+        targetValue = if (isGradeBlurred) 14.dp else 0.dp,
+        animationSpec = tween(durationMillis = GRADE_REVEAL_DURATION_MILLIS),
+        label = "dashboardGradeBlur"
+    )
+    val gradeDataAlpha by animateFloatAsState(
+        targetValue = if (isGradeBlurred) 0f else 1f,
+        animationSpec = tween(durationMillis = GRADE_REVEAL_DURATION_MILLIS),
+        label = "dashboardGradeDataAlpha"
+    )
 
     Box(
         modifier = modifier
@@ -174,11 +189,13 @@ fun DashboardScreen(
                             semesterRank = semesterRank.ifBlank { "-" },
                             totalRank = totalRank.ifBlank { "-" },
                             semesterGrades = semesterGrades,
+                            showSensitiveData = !isGradeBlurred,
                             showGraphData = !isGradeBlurred,
+                            sensitiveDataAlpha = gradeDataAlpha,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .blur(
-                                    radius = if (isGradeBlurred) 14.dp else 0.dp,
+                                    radius = gradeBlurRadius,
                                     edgeTreatment = BlurredEdgeTreatment.Unbounded
                                 )
                                 .padding(horizontal = 24.dp, vertical = 12.dp)
@@ -240,3 +257,5 @@ fun DashboardScreen(
 
     }
 }
+
+private const val GRADE_REVEAL_DURATION_MILLIS = 450
