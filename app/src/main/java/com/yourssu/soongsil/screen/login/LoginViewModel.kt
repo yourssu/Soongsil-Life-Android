@@ -31,32 +31,21 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            lmsAuthRepository.login(trimmedStudentId, password)
+            lmsAuthRepository.loginAndSaveCredentials(trimmedStudentId, password)
                 .onFailure { throwable ->
                     _uiState.update {
                         it.copy(isLoading = false, error = throwable.message)
                     }
                 }
                 .onSuccess {
-                    lmsAuthRepository.saveCredentials(trimmedStudentId, password)
-                        .onSuccess {
-                            val onboardingRequired = !onBoardingRepository.hasAgreedToTerms()
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    isLoginSuccessful = true,
-                                    isOnboardingRequired = onboardingRequired
-                                )
-                            }
-                        }
-                        .onFailure {
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    error = "로그인 정보를 안전하게 저장하지 못했습니다."
-                                )
-                            }
-                        }
+                    val onboardingRequired = !onBoardingRepository.hasAgreedToTerms()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isLoginSuccessful = true,
+                            isOnboardingRequired = onboardingRequired
+                        )
+                    }
                 }
         }
     }

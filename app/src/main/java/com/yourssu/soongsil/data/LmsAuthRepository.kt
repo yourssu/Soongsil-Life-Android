@@ -10,8 +10,15 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.yourssu.data.auth.LmsCredentials
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -27,6 +34,10 @@ private val Context.lmsCredentialsDataStore by preferencesDataStore(name = "lms_
 class LmsAuthRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    // 화면 이동과 관계없이 메인 로그인 작업이 완료되도록 앱 수명의 스코프를 사용합니다.
+    private val loginScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // 전역 LMS 세션이 동시에 변경되지 않도록 로그인 요청을 순서대로 처리합니다.
+    private val loginMutex = Mutex()
     private val studentIdKey = stringPreferencesKey("student_id")
     private val encryptedPasswordKey = stringPreferencesKey("encrypted_password")
     private val passwordIvKey = stringPreferencesKey("password_iv")
@@ -78,6 +89,31 @@ class LmsAuthRepository @Inject constructor(
                 }
             }
         }
+
+    // 메인 로그인과 자격 증명 저장을 화면의 수명과 분리하여 끝까지 처리합니다.
+    suspend fun loginAndSaveCredentials(studentId: String, password: String): Result<Unit> {
+        val loginTask = loginScope.async {
+            loginMutex.withLock {
+                login(studentId, password).getOrThrow()
+                saveCredentials(studentId, password).getOrElse { throwable ->
+                    throw IllegalStateException(
+                        "로그인 정보를 안전하게 저장하지 못했습니다.",
+                        throwable
+                    )
+                }
+            }
+        }
+
+        return try {
+            loginTask.await()
+            Result.success(Unit)
+        } catch (exception: CancellationException) {
+            // 호출 화면만 닫힌 경우 앱 수명의 로그인 작업은 계속 진행합니다.
+            throw exception
+        } catch (throwable: Throwable) {
+            Result.failure(throwable)
+        }
+    }
 
     fun hasActiveSession(): Boolean = LmsApi.isLoggined
 
