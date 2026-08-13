@@ -1,8 +1,10 @@
 package com.yourssu.soongsil.screen.grade.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,9 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
+// 선택된 학기의 평점 요약 카드를 표시합니다.
 @Composable
 fun GpaDetailCard(
     gpa: String,
@@ -28,7 +33,7 @@ fun GpaDetailCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF0A0A0A), RoundedCornerShape(20.dp))
+            .background(if(isSystemInDarkTheme()) SoongsilPalette.Black else SoongsilPalette.Gray950, RoundedCornerShape(20.dp))
             .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -57,9 +62,9 @@ fun GpaDetailCard(
                 color = Color(0xFFA1A1A1)
             )
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(text = "취득 학점 $credits", fontSize = 13.sp, fontWeight = FontWeight.Normal, color = Color(0xFFA1A1A1))
             Text(text = "·", fontSize = 13.sp, color = Color(0xFF525252))
