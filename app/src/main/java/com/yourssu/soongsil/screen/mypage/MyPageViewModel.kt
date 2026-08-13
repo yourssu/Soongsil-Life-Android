@@ -17,7 +17,7 @@ import javax.inject.Inject
 class MyPageViewModel @Inject constructor(
     private val lmsAuthRepository: LmsAuthRepository,
     private val dashboardRepository: DashboardRepository,
-    private val tuitionScholarshipCache: TuitionScholarshipCache
+    private val tuitionScholarshipCache: TuitionScholarshipCache,
     private val keepRepository: KeepRepository
 ) : ViewModel() {
     private val _gradeNotificationEnabled = MutableStateFlow(true)
