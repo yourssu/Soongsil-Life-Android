@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -108,22 +109,27 @@ class MainActivity : ComponentActivity() {
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
             ) {
-                val currentRoute = navController
+                val currentDestination = navController
                     .currentBackStackEntryAsState()
                     .value
                     ?.destination
-                    ?.route
-                val showBottomBar = currentRoute !in setOf(
-                    Login::class.qualifiedName,
-                    OnBoardingTerms::class.qualifiedName,
-                    OnBoardingComplete::class.qualifiedName,
-                    Graduate::class.qualifiedName
-                )
+
+                // 난독화된 클래스 이름과 무관하게 목적지 타입으로 하단 메뉴 노출 여부를 판단합니다.
+                val showBottomBar = when {
+                    currentDestination == null -> false
+                    currentDestination.hasRoute(Login::class) -> false
+                    currentDestination.hasRoute(OnBoardingTerms::class) -> false
+                    currentDestination.hasRoute(OnBoardingComplete::class) -> false
+                    currentDestination.hasRoute(Graduate::class) -> false
+                    else -> true
+                }
+
+                // 현재 목적지 타입에 맞는 하단 메뉴를 선택합니다.
                 val selectedTab = when {
-                    currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
-                    currentRoute == MyPage::class.qualifiedName ||
-                        currentRoute == Keep::class.qualifiedName ||
-                        currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
+                    currentDestination?.hasRoute(Timetable::class) == true -> MainTab.TIMETABLE
+                    currentDestination?.hasRoute(MyPage::class) == true ||
+                        currentDestination?.hasRoute(Keep::class) == true ||
+                        currentDestination?.hasRoute(CourseCatalog::class) == true -> MainTab.MY_PAGE
                     else -> MainTab.HOME
                 }
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
@@ -492,7 +498,8 @@ class MainActivity : ComponentActivity() {
 
 private fun NavHostController.navigateToMainTab(tab: MainTab) {
     if (tab == MainTab.HOME) {
-        if (currentDestination?.route == Dashboard::class.qualifiedName) return
+        // 난독화 여부와 무관하게 현재 목적지가 홈인지 타입으로 확인합니다.
+        if (currentDestination?.hasRoute(Dashboard::class) == true) return
         if (popBackStack<Dashboard>(inclusive = false)) return
 
         navigate(Dashboard) {
