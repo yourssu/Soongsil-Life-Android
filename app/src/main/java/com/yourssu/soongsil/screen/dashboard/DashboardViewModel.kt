@@ -88,10 +88,6 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun retryRefresh() {
-        requestRefresh(isPullToRefresh = false)
-    }
-
     fun pullToRefresh() {
         requestRefresh(isPullToRefresh = true)
     }
@@ -136,6 +132,10 @@ class DashboardViewModel @Inject constructor(
                 }
                 return
             }
+
+        _uiState.update {
+            it.copy(refreshStep = DashboardRefreshStep.DATA_LOADING)
+        }
 
         val refreshResult = dashboardRepository.refreshData(
             studentId = studentId,

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +41,14 @@ import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
 @Composable
-fun DashboardTopBar(modifier: Modifier = Modifier) {
+fun DashboardTopBar(
+    isLoading: Boolean,
+    loadingText: String,
+    completedCount: Int,
+    totalCount: Int,
+    onNotificationClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -61,11 +69,48 @@ fun DashboardTopBar(modifier: Modifier = Modifier) {
                     .width(48.dp)
                     .height(28.dp)
             )
-            Image(
-                painter = painterResource(R.drawable.ic_tabbar_bell),
-                contentDescription = "알림",
-                modifier = Modifier.size(24.dp)
-            )
+            Spacer(modifier = Modifier.width(12.dp))
+            if (isLoading) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = loadingText,
+                        color = SoongsilPalette.Slate400,
+                        fontFamily = PretendardFontFamily,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    LinearProgressIndicator(
+                        progress = {
+                            if (totalCount == 0) 0f
+                            else completedCount.toFloat() / totalCount
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp),
+                        color = Color(0xFF3182F6),
+                        trackColor = Color(0xFFC9E2FF)
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable(onClick = onNotificationClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_tabbar_bell),
+                    contentDescription = "알림",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
     }

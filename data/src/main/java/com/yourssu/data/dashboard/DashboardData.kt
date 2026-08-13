@@ -61,6 +61,7 @@ data class DashboardChapelTerm(
 
 enum class DashboardRefreshStep(val current: Int) {
     CONNECTING(0),
+    DATA_LOADING(0),
     ONE_COMPLETED(1),
     TWO_COMPLETED(2),
     COMPLETED(3);

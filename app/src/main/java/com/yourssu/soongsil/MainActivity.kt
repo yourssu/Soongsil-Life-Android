@@ -121,8 +121,6 @@ class MainActivity : ComponentActivity() {
                 )
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
-//                    TODO 알림 기능 구현시 복원
-//                    currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
                     currentRoute == MyPage::class.qualifiedName ||
                         currentRoute == Keep::class.qualifiedName ||
                         currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
@@ -231,10 +229,13 @@ class MainActivity : ComponentActivity() {
                                 isGradeBlurred = !isDashboardGradeRevealed,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
-                                refreshErrorMessage = uiState.error,
                                 isPullRefreshing = uiState.isPullRefreshing,
                                 onPullToRefresh = viewModel::pullToRefresh,
-                                onRefreshRetryClick = viewModel::retryRefresh,
+                                onNotificationClick = {
+                                    navController.navigate(PushNotifications) {
+                                        launchSingleTop = true
+                                    }
+                                },
                                 onGradeBlurClick = { isDashboardGradeRevealed = true },
                                 onGradeDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
@@ -510,8 +511,6 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
     when (tab) {
         MainTab.HOME -> Unit
         MainTab.TIMETABLE -> navigate(Timetable, options)
-        //                    TODO 알림 기능 구현시 복원
-//        MainTab.NOTIFICATIONS -> navigate(PushNotifications, options)
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }

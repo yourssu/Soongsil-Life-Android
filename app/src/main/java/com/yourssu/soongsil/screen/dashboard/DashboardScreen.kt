@@ -35,7 +35,6 @@ import com.yourssu.soongsil.screen.dashboard.components.DashboardChapelSection
 import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeDetailButton
 import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeSection
 import com.yourssu.soongsil.screen.dashboard.components.DashboardQuickLinks
-import com.yourssu.soongsil.screen.dashboard.components.DashboardRefreshPopup
 import com.yourssu.soongsil.screen.dashboard.components.DashboardTopBar
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.theme.PretendardFontFamily
@@ -85,7 +84,9 @@ private fun DashboardGradeBlurPreview() {
                 DashboardSemesterGrade("3-1", "3.31"),
                 DashboardSemesterGrade("4-1", "3.52")
             ),
-            isGradeBlurred = true
+            isGradeBlurred = true,
+            refreshStatus = DashboardRefreshStatus.LOADING,
+            refreshStep = DashboardRefreshStep.TWO_COMPLETED
         )
     }
 }
@@ -107,10 +108,9 @@ fun DashboardScreen(
     isGradeBlurred: Boolean = true,
     refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.HIDDEN,
     refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
-    refreshErrorMessage: String? = null,
     isPullRefreshing: Boolean = false,
     onPullToRefresh: () -> Unit = {},
-    onRefreshRetryClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {},
     onGradeBlurClick: () -> Unit = {},
     onGradeDetailClick: () -> Unit = {},
     onChapelClick: () -> Unit = {},
@@ -126,7 +126,17 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            DashboardTopBar()
+            DashboardTopBar(
+                isLoading = refreshStatus == DashboardRefreshStatus.LOADING,
+                loadingText = if (refreshStep == DashboardRefreshStep.CONNECTING) {
+                    "로그인 중"
+                } else {
+                    "데이터 불러오는 중"
+                },
+                completedCount = refreshStep.current,
+                totalCount = DashboardRefreshStep.TOTAL,
+                onNotificationClick = onNotificationClick
+            )
 
             PullToRefreshBox(
                 isRefreshing = isPullRefreshing,
@@ -228,14 +238,5 @@ fun DashboardScreen(
             }
         }
 
-        DashboardRefreshPopup(
-            status = refreshStatus,
-            step = refreshStep,
-            errorMessage = refreshErrorMessage,
-            onRetryClick = onRefreshRetryClick,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 52.dp)
-        )
     }
 }
