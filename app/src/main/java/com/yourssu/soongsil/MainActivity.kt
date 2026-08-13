@@ -1,4 +1,4 @@
-package com.yourssu.soongsil
+﻿package com.yourssu.soongsil
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -69,6 +69,7 @@ import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
+import com.yourssu.soongsil.screen.timetable.TimetableViewModel
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
@@ -340,7 +341,15 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         composable<Timetable> {
-                            TimetableScreen()
+                            val viewModel: TimetableViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            TimetableScreen(
+                                uiState = uiState,
+                                onRetry = viewModel::retry,
+                                onCourseClick = viewModel::selectCourse,
+                                onDismissCourseDetail = viewModel::dismissCourseDetail
+                            )
                         }
                         composable<PushNotifications> {
                             PushNotificationsScreen()
@@ -412,3 +421,5 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }
+
+
