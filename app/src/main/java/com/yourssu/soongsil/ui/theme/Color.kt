@@ -18,6 +18,7 @@ object SoongsilPalette {
     val Gray500 = Color(0xFFA1A1A1)
     val Gray800 = Color(0xFF525252)
     val Gray850 = Color(0xFF1A1A1A)
+    val Gray875 = Color(0xFF232327)
     val Gray900 = Color(0xFF18181B)
     val Gray950 = Color(0xFF0A0A0A)
 
