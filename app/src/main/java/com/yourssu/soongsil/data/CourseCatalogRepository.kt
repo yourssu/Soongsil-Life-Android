@@ -21,13 +21,13 @@ import io.github.chlwhdtn03.data.Lms.CourseCatalogQuery
 import io.github.chlwhdtn03.data.Lms.CourseCatalogSearchOptions
 import io.github.chlwhdtn03.data.Lms.CourseCatalogTable
 import io.github.chlwhdtn03.data.Lms.Semester
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private val Context.courseCatalogDataStore by preferencesDataStore(name = "course_catalog_cache")
 
@@ -47,6 +47,11 @@ class CourseCatalogRepository @Inject constructor(
                 json.decodeFromString<CourseCatalogData>(encodedData)
             }.getOrNull()
         }
+    }
+
+    // 로그아웃한 사용자의 강의시간표 검색 기록을 삭제합니다.
+    suspend fun clearCachedData(): Result<Unit> = runCatching {
+        context.courseCatalogDataStore.edit { it.clear() }
     }
 
     suspend fun getSearchOptions(

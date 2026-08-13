@@ -2,9 +2,12 @@ package com.yourssu.soongsil.screen.mypage
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourssu.soongsil.data.CourseCatalogRepository
 import com.yourssu.soongsil.data.DashboardRepository
+import com.yourssu.soongsil.data.GradeRepository
 import com.yourssu.soongsil.data.KeepRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.OnBoardingRepository
 import com.yourssu.soongsil.data.TuitionScholarshipCache
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +20,11 @@ import javax.inject.Inject
 class MyPageViewModel @Inject constructor(
     private val lmsAuthRepository: LmsAuthRepository,
     private val dashboardRepository: DashboardRepository,
+    private val gradeRepository: GradeRepository,
     private val tuitionScholarshipCache: TuitionScholarshipCache,
-    private val keepRepository: KeepRepository
+    private val keepRepository: KeepRepository,
+    private val courseCatalogRepository: CourseCatalogRepository,
+    private val onBoardingRepository: OnBoardingRepository
 ) : ViewModel() {
     private val _gradeNotificationEnabled = MutableStateFlow(true)
     val gradeNotificationEnabled: StateFlow<Boolean> = _gradeNotificationEnabled.asStateFlow()
@@ -32,12 +38,20 @@ class MyPageViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            if (dashboardRepository.clearCachedData().isFailure) return@launch
-            if (tuitionScholarshipCache.clearCachedData().isFailure) return@launch
-            if (keepRepository.clearCachedData().isFailure) return@launch
+            // 일부 삭제가 실패해도 나머지 DataStore까지 모두 초기화를 시도합니다.
+            val clearResults = listOf(
+                dashboardRepository.clearCachedData(),
+                gradeRepository.clearCachedData(),
+                tuitionScholarshipCache.clearCachedData(),
+                keepRepository.clearCachedData(),
+                courseCatalogRepository.clearCachedData(),
+                onBoardingRepository.clearCachedData()
+            )
+            val logoutResult = lmsAuthRepository.logout()
 
-            lmsAuthRepository.logout()
-                .onSuccess { _logoutCompleted.value = true }
+            if (clearResults.all { it.isSuccess } && logoutResult.isSuccess) {
+                _logoutCompleted.value = true
+            }
         }
     }
 
