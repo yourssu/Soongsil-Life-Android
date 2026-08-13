@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.yourssu.data.dashboard.DashboardChapelData
+import com.yourssu.data.dashboard.DashboardChapelTerm
+import com.yourssu.data.dashboard.DashboardChapelWeeklyAttendance
 import com.yourssu.data.dashboard.DashboardData
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.data.dashboard.DashboardSemesterGrade
@@ -13,11 +15,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.data.Lms.ChapelInformation
 import io.github.chlwhdtn03.data.Lms.Info
+import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.SemesterGradeSummaryTable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import java.util.Locale
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -44,6 +48,51 @@ class DashboardRepository @Inject constructor(
         context.dashboardDataStore.edit { it.clear() }
     }
 
+    suspend fun getChapelData(
+        year: String,
+        semester: Semester,
+    ): Result<DashboardChapelData> = runCatching {
+        LmsApi.getChapelTable(year, semester).toDashboardChapel()
+    }
+
+    suspend fun getAvailableChapelTerms(
+        studentId: String,
+        onTermFound: (DashboardChapelTerm) -> Unit = {},
+    ): Result<List<DashboardChapelTerm>> = runCatching {
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        val admissionYear = studentId
+            .take(4)
+            .toIntOrNull()
+            ?.coerceAtMost(currentYear)
+            ?: currentYear
+        val availableTerms = mutableListOf<DashboardChapelTerm>()
+
+        for (year in currentYear downTo admissionYear) {
+            for (semester in listOf(Semester.SECOND, Semester.FIRST)) {
+                val chapelInformation = runCatching {
+                    LmsApi.getChapelTable(year.toString(), semester)
+                }.getOrNull() ?: continue
+
+                val hasChapelData = chapelInformation.seatStatusTable.items.isNotEmpty() ||
+                        chapelInformation.attendanceTable.items.isNotEmpty() ||
+                        chapelInformation.absenceTable.items.isNotEmpty()
+
+                if (hasChapelData) {
+                    val term = DashboardChapelTerm(
+                        year = chapelInformation.year,
+                        semester = chapelInformation.semester.nameKor,
+                    )
+                    if (term !in availableTerms) {
+                        availableTerms += term
+                        onTermFound(term)
+                    }
+                }
+            }
+        }
+
+        availableTerms
+    }
+
     suspend fun refreshData(
         studentId: String,
         onStepChanged: (DashboardRefreshStep) -> Unit = {}
@@ -66,7 +115,7 @@ class DashboardRepository @Inject constructor(
                 Log.d(
                     TAG,
                     "채플 정보 로드 성공 : 좌석 ${it.seatStatusTable.items.size}건, " +
-                        "출석 ${it.attendanceTable.items.size}건"
+                            "출석 ${it.attendanceTable.items.size}건"
                 )
             }
             .onFailure { Log.e(TAG, "채플 정보 로드 실패", it) }
@@ -77,7 +126,7 @@ class DashboardRepository @Inject constructor(
             studentId = studentId,
             overallGpa = grades.calculateOverallGpa(),
             semesterGrades = grades.toDashboardGrades(),
-            chapel = chapel.toDashboardChapel()
+            chapel = chapel.toAvailableChapelData()
         )
 
         context.dashboardDataStore.edit { preferences ->
@@ -136,6 +185,41 @@ class DashboardRepository @Inject constructor(
         startsWith("겨울") -> "겨울"
         else -> removeSuffix("학기")
     }
+    private suspend fun ChapelInformation.toAvailableChapelData(): DashboardChapelData {
+        val newChapelData = toDashboardChapel()
+
+        val hasNewSeatData = seatStatusTable.items.any {
+            it.seatNo.isNotBlank()
+        }
+
+        if (hasNewSeatData) {
+            Log.d(
+                TAG,
+                "새 채플 좌석 정보를 사용합니다: ${newChapelData.seat}"
+            )
+
+            return newChapelData
+        }
+
+        val cachedChapelData = getCachedData()?.chapel
+
+        if (cachedChapelData != null && cachedChapelData.seat.isNotBlank()) {
+            Log.d(
+                TAG,
+                "새 좌석 정보가 없어 기존 대시보드의 채플 정보를 사용합니다: " +
+                        cachedChapelData.seat
+            )
+
+            return newChapelData.copy(
+                seat = cachedChapelData.seat,
+                seatDescription = cachedChapelData.seatDescription,
+            )
+        }
+
+        Log.d(TAG, "새 좌석 정보와 저장된 좌석 정보가 모두 없습니다.")
+
+        return newChapelData
+    }
 
     private fun ChapelInformation.toDashboardChapel(): DashboardChapelData {
         val seatStatus = seatStatusTable.items.firstOrNull()
@@ -150,6 +234,8 @@ class DashboardRepository @Inject constructor(
         val required = attendance.size
 
         return DashboardChapelData(
+            year = year,
+            semester = semester.nameKor,
             seat = seatStatus?.seatNo.orEmpty(),
             seatDescription = listOfNotNull(
                 seatStatus?.classroom?.takeIf { it.isNotBlank() },
@@ -160,7 +246,19 @@ class DashboardRepository @Inject constructor(
             attended = attended,
             late = late,
             absent = absent,
-            progress = if (required == 0) 0f else recorded.toFloat() / required
+            progress = if (required == 0) 0f else recorded.toFloat() / required,
+            weeklyAttendances = attendance
+                .sortedBy { it.date }
+                .mapIndexed { index, item ->
+                    DashboardChapelWeeklyAttendance(
+                        week = index + 1,
+                        date = item.date,
+                        lectureType = item.lectureType,
+                        speaker = item.rawValues["강사"].orEmpty(),
+                        title = item.rawValues["제목"].orEmpty(),
+                        status = item.status,
+                    )
+                },
         )
     }
 

@@ -31,6 +31,24 @@ fun ChapelSeatCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val zone = seat
+        .substringBefore("-")
+        .trim()
+        .uppercase()
+
+    val floor = when (zone) {
+        "A", "B", "C", "D", "E" -> "1층"
+        "F", "G", "H", "I", "J" -> "2층"
+        else -> ""
+    }
+
+    val seatLocation = listOf(
+        floor,
+        zone.takeIf { it.isNotBlank() }?.let { "${it}구역" }.orEmpty(),
+    )
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -62,7 +80,7 @@ fun ChapelSeatCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = seatDescription,
+                text = seatLocation,
                 modifier = Modifier
                     .weight(1f)
                     .basicMarquee(
