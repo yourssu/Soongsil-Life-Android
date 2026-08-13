@@ -114,7 +114,7 @@ class DashboardViewModel @Inject constructor(
                 isLoading = true,
                 error = null,
                 refreshStatus = DashboardRefreshStatus.LOADING,
-                refreshStep = DashboardRefreshStep.STUDENT_INFO
+                refreshStep = DashboardRefreshStep.CONNECTING
             )
         }
 
@@ -137,9 +137,49 @@ class DashboardViewModel @Inject constructor(
                 return
             }
 
-        val refreshResult = dashboardRepository.refreshData(studentId) { step ->
-            _uiState.update { it.copy(refreshStep = step) }
-        }
+        val refreshResult = dashboardRepository.refreshData(
+            studentId = studentId,
+            onRequestCompleted = { completedCount ->
+                _uiState.update {
+                    it.copy(
+                        refreshStep = DashboardRefreshStep.fromCompletedCount(completedCount)
+                    )
+                }
+            },
+            onStudentInfoLoaded = { loginInfo ->
+                // 개인정보 응답이 도착하면 다른 요청을 기다리지 않고 바로 반영합니다.
+                _uiState.update {
+                    it.copy(
+                        dashboardData = (it.dashboardData ?: DashboardData()).copy(
+                            studentName = loginInfo.user_name,
+                            department = loginInfo.dept_name,
+                            studentId = studentId
+                        )
+                    )
+                }
+            },
+            onGradesLoaded = { overallGpa, semesterGrades ->
+                _uiState.update {
+                    it.copy(
+                        dashboardData = (it.dashboardData ?: DashboardData()).copy(
+                            studentId = studentId,
+                            overallGpa = overallGpa,
+                            semesterGrades = semesterGrades
+                        )
+                    )
+                }
+            },
+            onChapelLoaded = { chapel ->
+                _uiState.update {
+                    it.copy(
+                        dashboardData = (it.dashboardData ?: DashboardData()).copy(
+                            studentId = studentId,
+                            chapel = chapel
+                        )
+                    )
+                }
+            }
+        )
         refreshResult
             .onSuccess { dashboardData ->
                 _uiState.update {

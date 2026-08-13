@@ -221,9 +221,10 @@ private fun DashboardRefreshStatus.description(
 
 private fun DashboardRefreshStep.description(): String = when (this) {
     DashboardRefreshStep.CONNECTING -> "LMS에 연결"
-    DashboardRefreshStep.STUDENT_INFO -> "이름과 학과 정보"
-    DashboardRefreshStep.GRADES -> "학기별 성적 정보"
-    DashboardRefreshStep.CHAPEL -> "채플 좌석과 출석 정보"
+    DashboardRefreshStep.ONE_COMPLETED,
+    DashboardRefreshStep.TWO_COMPLETED,
+    DashboardRefreshStep.THREE_COMPLETED -> "학기·개인·성적·채플 정보를 동시에 불러오는 중"
+    DashboardRefreshStep.COMPLETED -> "불러온 정보를 화면에 반영하는 중"
 }
 
 @Preview(name = "불러오는 중")
@@ -240,7 +241,7 @@ private fun DashboardRefreshPopupPreview() {
         ) {
             DashboardRefreshPopup(
                 status = DashboardRefreshStatus.LOADING,
-                step = DashboardRefreshStep.GRADES,
+                step = DashboardRefreshStep.TWO_COMPLETED,
                 errorMessage = null,
                 onRetryClick = {}
             )

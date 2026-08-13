@@ -58,7 +58,7 @@ private fun DashboardScreenPreview() {
             chapelAbsent = 1,
             chapelProgress = 0.625f,
             refreshStatus = DashboardRefreshStatus.LOADING,
-            refreshStep = DashboardRefreshStep.GRADES
+            refreshStep = DashboardRefreshStep.TWO_COMPLETED
         )
     }
 }

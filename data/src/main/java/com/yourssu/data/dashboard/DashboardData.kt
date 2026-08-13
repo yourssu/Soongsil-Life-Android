@@ -50,11 +50,20 @@ data class DashboardChapelTerm(
 
 enum class DashboardRefreshStep(val current: Int) {
     CONNECTING(0),
-    STUDENT_INFO(1),
-    GRADES(2),
-    CHAPEL(3);
+    ONE_COMPLETED(1),
+    TWO_COMPLETED(2),
+    THREE_COMPLETED(3),
+    COMPLETED(4);
 
     companion object {
-        const val TOTAL = 3
+        const val TOTAL = 4
+
+        fun fromCompletedCount(count: Int): DashboardRefreshStep = when (count) {
+            1 -> ONE_COMPLETED
+            2 -> TWO_COMPLETED
+            3 -> THREE_COMPLETED
+            4 -> COMPLETED
+            else -> CONNECTING
+        }
     }
 }
