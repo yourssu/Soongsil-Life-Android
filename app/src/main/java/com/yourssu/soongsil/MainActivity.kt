@@ -76,7 +76,8 @@ import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
-
+import androidx.compose.runtime.mutableStateOf
+import com.yourssu.data.dashboard.DashboardChapelData
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -373,9 +374,9 @@ class MainActivity : ComponentActivity() {
                                 onBackClick = navController::popBackStack
                             )
                         }
-                        composable<Chapel> {
-                            ChapelScreen()
-                        }
+                            composable<Chapel> {
+                                ChapelScreen()
+                            }
                         }
                     }
 
