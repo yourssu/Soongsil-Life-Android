@@ -16,6 +16,9 @@ import com.yourssu.soongsil.screen.grade.model.SemesterTab
 import com.yourssu.soongsil.screen.grade.model.getGradeStyle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.chlwhdtn03.data.Lms.Semester
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -111,7 +114,7 @@ class GradeViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
-    // 전체 학기의 상세 성적을 순서대로 갱신합니다.
+    // 전체 학기의 상세 성적 요청을 동시에 보내고 결과를 한 번에 반영합니다.
     private suspend fun refreshAllSemesterGrades(
         semesters: List<GradeSemester>,
         showEverySemesterProgress: Boolean
@@ -122,43 +125,42 @@ class GradeViewModel @Inject constructor(
             return
         }
 
-        val latestSemester = semesters.first()
-        if (!showEverySemesterProgress) {
-            updateRefreshLoading(
-                message = latestSemester.toRefreshMessage(),
-                currentStep = 1,
-                totalStep = 1
-            )
+        updateRefreshLoading(
+            message = "모든 학기 성적 정보를 불러오는 중",
+            currentStep = null,
+            totalStep = null
+        )
 
-            refreshSemesterGrade(latestSemester)
-                .onFailure { throwable ->
-                    updateRefreshError(throwable.message)
-                    hideRefreshPopupAfterDelay()
-                    return
+        val semesterResults = coroutineScope {
+            semesters.map { semester ->
+                async {
+                    semester to gradeRepository.refreshSemesterGrade(
+                        year = semester.year,
+                        semester = Semester.valueOf(semester.semesterName)
+                    )
                 }
-
-            updateRefreshSuccess(message = "최신 학기 성적 정보를 불러왔어요")
-            hideRefreshPopupAfterDelay()
-
-            semesters.drop(1).forEach { semester ->
-                refreshSemesterGrade(semester)
-            }
-            return
+            }.awaitAll()
         }
 
-        semesters.forEachIndexed { index, semester ->
-            updateRefreshLoading(
-                message = semester.toRefreshMessage(),
-                currentStep = index + 1,
-                totalStep = semesters.size
-            )
+        val refreshedGrades = semesterResults.mapNotNull { (semester, result) ->
+            result.getOrNull()?.let { semesterData ->
+                semester.cacheKey to semesterData
+            }
+        }.toMap()
 
-            refreshSemesterGrade(semester)
-                .onFailure { throwable ->
-                    updateRefreshError(throwable.message)
-                    hideRefreshPopupAfterDelay()
-                    return
-                }
+        if (refreshedGrades.isNotEmpty()) {
+            updateAndSaveGradeData(
+                currentGradeData.copy(grades = currentGradeData.grades + refreshedGrades)
+            )
+        }
+
+        val failure = semesterResults.firstNotNullOfOrNull { (_, result) ->
+            result.exceptionOrNull()
+        }
+        if (failure != null) {
+            updateRefreshError(failure.message)
+            hideRefreshPopupAfterDelay()
+            return
         }
 
         updateRefreshSuccess(
@@ -169,24 +171,6 @@ class GradeViewModel @Inject constructor(
             }
         )
         hideRefreshPopupAfterDelay()
-    }
-
-    // 특정 학기의 상세 성적을 API에서 다시 불러옵니다.
-    private suspend fun refreshSemesterGrade(semester: GradeSemester): Result<Unit> {
-        return gradeRepository.refreshSemesterGrade(
-            year = semester.year,
-            semester = Semester.valueOf(semester.semesterName)
-        ).map { semesterData ->
-            val updatedGrades = currentGradeData.grades.toMutableMap().apply {
-                put(semester.cacheKey, semesterData)
-            }
-            val updatedData = currentGradeData.copy(grades = updatedGrades)
-            updateAndSaveGradeData(updatedData)
-        }.onFailure { throwable ->
-            _uiState.update {
-                it.copy(errorMessage = throwable.message)
-            }
-        }
     }
 
     // 성적 데이터를 화면 상태와 캐시에 함께 반영합니다.
@@ -335,12 +319,6 @@ class GradeViewModel @Inject constructor(
         return points.mapIndexed { index, point ->
             point.copy(isCurrent = index == points.lastIndex)
         }
-    }
-
-    // 학기 데이터를 성적 갱신 팝업 문구로 변환합니다.
-    private fun GradeSemester.toRefreshMessage(): String {
-        val semester = Semester.valueOf(semesterName).nameKor
-        return "${year}학년도 $semester 성적 정보를 불러오는 중"
     }
 
     private companion object {
