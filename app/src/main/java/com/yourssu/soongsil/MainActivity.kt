@@ -66,6 +66,8 @@ import com.yourssu.soongsil.screen.plan.PlanPdfScreen
 import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
 import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.components.MainBottomBar
@@ -344,7 +346,20 @@ class MainActivity : ComponentActivity() {
                             PushNotificationsScreen()
                         }
                         composable<Scholarship> {
-                            // TODO: Implement MyPageScreen
+                            val viewModel: ScholarshipViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            ScholarshipScreen(
+                                tuitionHistories = uiState.tuitionHistories,
+                                isTuitionLoading = uiState.isTuitionLoading,
+                                tuitionErrorMessage = uiState.tuitionErrorMessage,
+                                onTuitionRetryClick = viewModel::loadTuitionHistories,
+                                scholarshipHistories = uiState.scholarshipHistories,
+                                isScholarshipLoading = uiState.isScholarshipLoading,
+                                scholarshipErrorMessage = uiState.scholarshipErrorMessage,
+                                onScholarshipRetryClick = viewModel::loadScholarshipHistories,
+                                onBackClick = navController::popBackStack
+                            )
                         }
                         composable<Chapel> {
                             ChapelScreen()

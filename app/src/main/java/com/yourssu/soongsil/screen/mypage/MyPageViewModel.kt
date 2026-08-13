@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.KeepRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.TuitionScholarshipCache
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import javax.inject.Inject
 class MyPageViewModel @Inject constructor(
     private val lmsAuthRepository: LmsAuthRepository,
     private val dashboardRepository: DashboardRepository,
+    private val tuitionScholarshipCache: TuitionScholarshipCache,
     private val keepRepository: KeepRepository
 ) : ViewModel() {
     private val _gradeNotificationEnabled = MutableStateFlow(true)
@@ -31,6 +33,7 @@ class MyPageViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             if (dashboardRepository.clearCachedData().isFailure) return@launch
+            if (tuitionScholarshipCache.clearCachedData().isFailure) return@launch
             if (keepRepository.clearCachedData().isFailure) return@launch
 
             lmsAuthRepository.logout()
