@@ -6,6 +6,7 @@ import com.yourssu.data.timetable.TimetableCourse
 import com.yourssu.data.timetable.TimetableSemester
 import com.yourssu.data.timetable.TimetableTerm
 import com.yourssu.soongsil.data.TimetableRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,10 @@ class TimetableViewModel @Inject constructor(
 
     fun dismissCourseDetail() {
         _uiState.update { it.copy(selectedCourse = null) }
+    }
+
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
     }
 
     private fun loadAvailableTerms() {
@@ -125,7 +130,8 @@ class TimetableViewModel @Inject constructor(
                                 semester = "",
                                 courses = emptyList(),
                                 errorMessage = null,
-                                termLoadError = throwable.message ?: "수강 학기 정보를 불러오지 못했습니다."
+                                termLoadError = throwable.message ?: "수강 학기 정보를 불러오지 못했습니다.",
+                                loginRequired = throwable.isLmsLoginRequired()
                             )
                         }
                     }
@@ -181,7 +187,8 @@ class TimetableViewModel @Inject constructor(
                             year = term.year,
                             semester = term.semester.label,
                             courses = emptyList(),
-                            errorMessage = throwable.message ?: "시간표를 불러오지 못했습니다."
+                            errorMessage = throwable.message ?: "시간표를 불러오지 못했습니다.",
+                            loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
                 }
@@ -209,7 +216,8 @@ class TimetableViewModel @Inject constructor(
         val courses: List<TimetableCourse> = emptyList(),
         val selectedCourse: TimetableCourse? = null,
         val errorMessage: String? = null,
-        val termLoadError: String? = null
+        val termLoadError: String? = null,
+        val loginRequired: Boolean = false
     )
 }
 

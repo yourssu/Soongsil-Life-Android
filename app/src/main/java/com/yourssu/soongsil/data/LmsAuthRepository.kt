@@ -71,11 +71,24 @@ class LmsAuthRepository @Inject constructor(
         }
     }
 
-    suspend fun login(studentId: String, password: String): Result<Unit> = loginMutex.withLock {
-        // 이미 생성된 LMS 세션이 있으면 중복 로그인을 요청하지 않습니다.
-        if (hasActiveSession()) return@withLock Result.success(Unit)
+    suspend fun login(studentId: String, password: String): Result<Unit> {
+        val loginTask = loginScope.async {
+            loginMutex.withLock {
+                // 이미 생성된 LMS 세션이 있으면 중복 로그인을 요청하지 않습니다.
+                if (hasActiveSession()) return@withLock Result.success(Unit)
 
-        performLogin(studentId, password)
+                performLogin(studentId, password)
+            }
+        }
+
+        return try {
+            loginTask.await()
+        } catch (exception: CancellationException) {
+            // 호출 화면이 닫혀도 앱 수명의 로그인 작업은 계속 진행합니다.
+            throw exception
+        } catch (throwable: Throwable) {
+            Result.failure(throwable)
+        }
     }
 
     private suspend fun performLogin(studentId: String, password: String): Result<Unit> =
@@ -86,11 +99,14 @@ class LmsAuthRepository @Inject constructor(
                 if (result.success) {
                     continuation.resume(Result.success(Unit))
                 } else {
+                    val errorMessage = result.errorMessage ?: "로그인에 실패했습니다."
                     continuation.resume(
                         Result.failure(
-                            IllegalArgumentException(
-                                result.errorMessage ?: "로그인에 실패했습니다."
-                            )
+                            if (errorMessage == INVALID_CREDENTIALS_MESSAGE) {
+                                LmsLoginRequiredException(errorMessage)
+                            } else {
+                                IllegalStateException(errorMessage)
+                            }
                         )
                     )
                 }
@@ -126,6 +142,20 @@ class LmsAuthRepository @Inject constructor(
     }
 
     fun hasActiveSession(): Boolean = LmsApi.isLoggined
+
+    // 모든 LMS 기능이 동일한 방식으로 저장된 계정의 세션을 복구하도록 합니다.
+    suspend fun ensureActiveSession(): Result<Unit> {
+        if (hasActiveSession()) return Result.success(Unit)
+
+        val credentials = getSavedCredentials()
+            ?: return Result.failure(LmsLoginRequiredException("로그인이 필요합니다."))
+
+        return login(credentials.studentId, credentials.password)
+            .onFailure { throwable ->
+                // 잘못 저장된 계정으로 자동 로그인이 반복되지 않도록 인증 정보만 삭제합니다.
+                if (throwable is LmsLoginRequiredException) clearCredentials()
+            }
+    }
 
     suspend fun logout(): Result<Unit> = runCatching {
         clearCredentials()
@@ -177,5 +207,13 @@ class LmsAuthRepository @Inject constructor(
         const val KEY_STORE_PROVIDER = "AndroidKeyStore"
         const val KEY_ALIAS = "lms_password_key"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
+        const val INVALID_CREDENTIALS_MESSAGE = "아이디 또는 비밀번호가 일치하지 않습니다."
     }
 }
+
+// 자동 로그인을 계속 시도할 수 없는 경우 로그인 화면 이동 여부를 구분하는 예외입니다.
+class LmsLoginRequiredException(message: String) : IllegalStateException(message)
+
+// 저장소에서 예외를 감싸더라도 로그인 화면 이동 사유를 잃지 않도록 확인합니다.
+fun Throwable.isLmsLoginRequired(): Boolean =
+    generateSequence(this) { it.cause }.any { it is LmsLoginRequiredException }

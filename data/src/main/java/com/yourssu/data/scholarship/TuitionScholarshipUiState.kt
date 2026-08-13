@@ -6,5 +6,6 @@ data class TuitionScholarshipUiState(
     val tuitionErrorMessage: String? = null,
     val isScholarshipLoading: Boolean = false,
     val scholarshipHistories: List<ScholarshipHistory> = emptyList(),
-    val scholarshipErrorMessage: String? = null
+    val scholarshipErrorMessage: String? = null,
+    val loginRequired: Boolean = false
 )

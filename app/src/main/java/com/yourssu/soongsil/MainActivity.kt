@@ -49,12 +49,15 @@ import com.yourssu.data.nav.PushNotifications
 import com.yourssu.data.nav.Scholarship
 import com.yourssu.data.nav.Timetable
 import com.yourssu.soongsil.screen.chapel.ChapelScreen
+import com.yourssu.soongsil.screen.chapel.ChapelViewModel
 import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogScreen
 import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogViewModel
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
+import com.yourssu.soongsil.screen.grade.GradeViewModel
 import com.yourssu.soongsil.screen.graduation.GraduationScreen
+import com.yourssu.soongsil.screen.graduation.GraduationViewModel
 import com.yourssu.soongsil.screen.keep.KeepScreen
 import com.yourssu.soongsil.screen.keep.KeepViewModel
 import com.yourssu.soongsil.screen.login.LoginScreen
@@ -227,11 +230,41 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable<Grade> {
-                            GradeDetailScreen(onBackClick = { navController.popBackStack() })
+                            val viewModel: GradeViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
+                            GradeDetailScreen(
+                                onBackClick = { navController.popBackStack() },
+                                viewModel = viewModel
+                            )
                         }
                         composable<Graduate> {
+                            val viewModel: GraduationViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             GraduationScreen(
-                                onBackClick = { navController.popBackStack() }
+                                onBackClick = { navController.popBackStack() },
+                                viewModel = viewModel
                             )
                         }
                         composable<MyPage> {
@@ -265,7 +298,7 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(uiState.loginRequired) {
                                 if (uiState.loginRequired) {
                                     navController.navigate(Login) {
-                                        popUpTo<Keep> { inclusive = true }
+                                        popUpTo<Dashboard> { inclusive = true }
                                         launchSingleTop = true
                                     }
                                     viewModel.onLoginNavigationHandled()
@@ -309,6 +342,16 @@ class MainActivity : ComponentActivity() {
                             val planState = uiState.planPdfState
                             val pdf = planState.pdf
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             if (pdf != null) {
                                 PlanPdfScreen(
                                     title = pdf.title,
@@ -348,6 +391,16 @@ class MainActivity : ComponentActivity() {
                             val viewModel: TimetableViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             TimetableScreen(
                                 uiState = uiState,
                                 onRetry = viewModel::retry,
@@ -362,6 +415,16 @@ class MainActivity : ComponentActivity() {
                             val viewModel: ScholarshipViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             ScholarshipScreen(
                                 tuitionHistories = uiState.tuitionHistories,
                                 isTuitionLoading = uiState.isTuitionLoading,
@@ -375,7 +438,20 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                             composable<Chapel> {
-                                ChapelScreen()
+                                val viewModel: ChapelViewModel = hiltViewModel()
+                                val uiState by viewModel.uiState.collectAsState()
+
+                                LaunchedEffect(uiState.loginRequired) {
+                                    if (uiState.loginRequired) {
+                                        navController.navigate(Login) {
+                                            popUpTo<Dashboard> { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                        viewModel.onLoginNavigationHandled()
+                                    }
+                                }
+
+                                ChapelScreen(viewModel = viewModel)
                             }
                         }
                     }

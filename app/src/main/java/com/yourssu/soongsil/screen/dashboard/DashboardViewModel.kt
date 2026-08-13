@@ -6,6 +6,7 @@ import com.yourssu.data.dashboard.DashboardData
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -66,12 +67,7 @@ class DashboardViewModel @Inject constructor(
                     _uiState.update { it.copy(dashboardData = cachedData) }
                 }
 
-            if (lmsAuthRepository.hasActiveSession()) {
-                refreshDashboardData(credentials.studentId)
-                return@launch
-            }
-
-            lmsAuthRepository.login(credentials.studentId, credentials.password)
+            lmsAuthRepository.ensureActiveSession()
                 .onSuccess {
                     refreshDashboardData(credentials.studentId)
                 }
@@ -79,9 +75,13 @@ class DashboardViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            loginRequired = true,
+                            loginRequired = throwable.isLmsLoginRequired(),
                             error = throwable.message,
-                            refreshStatus = DashboardRefreshStatus.HIDDEN
+                            refreshStatus = if (throwable.isLmsLoginRequired()) {
+                                DashboardRefreshStatus.HIDDEN
+                            } else {
+                                DashboardRefreshStatus.ERROR
+                            }
                         )
                     }
                 }
@@ -117,6 +117,25 @@ class DashboardViewModel @Inject constructor(
                 refreshStep = DashboardRefreshStep.STUDENT_INFO
             )
         }
+
+        lmsAuthRepository.ensureActiveSession()
+            .onFailure { throwable ->
+                val loginRequired = throwable.isLmsLoginRequired()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        loginRequired = loginRequired,
+                        error = throwable.message,
+                        refreshStatus = if (loginRequired) {
+                            DashboardRefreshStatus.HIDDEN
+                        } else {
+                            DashboardRefreshStatus.ERROR
+                        },
+                        isPullRefreshing = false
+                    )
+                }
+                return
+            }
 
         val refreshResult = dashboardRepository.refreshData(studentId) { step ->
             _uiState.update { it.copy(refreshStep = step) }

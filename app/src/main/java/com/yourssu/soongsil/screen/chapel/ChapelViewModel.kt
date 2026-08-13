@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.data.dashboard.DashboardChapelTerm
 import com.yourssu.soongsil.data.DashboardRepository
+import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.chlwhdtn03.data.Lms.Semester
 import kotlinx.coroutines.Dispatchers
@@ -25,11 +27,13 @@ data class ChapelUiState(
     val availableTerms: List<DashboardChapelTerm> = emptyList(),
     val isTermsLoading: Boolean = false,
     val termsError: String? = null,
+    val loginRequired: Boolean = false,
 )
 
 @HiltViewModel
 class ChapelViewModel @Inject constructor(
     private val dashboardRepository: DashboardRepository,
+    private val lmsAuthRepository: LmsAuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChapelUiState())
@@ -47,6 +51,10 @@ class ChapelViewModel @Inject constructor(
         loadCachedChapelData()
     }
 
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
+    }
+
     fun selectSemester(year: String, semesterName: String) {
         val semester = when (semesterName) {
             Semester.FIRST.nameKor -> Semester.FIRST
@@ -62,6 +70,18 @@ class ChapelViewModel @Inject constructor(
                     semesterError = null,
                 )
             }
+
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isSemesterLoading = false,
+                            semesterError = throwable.message,
+                            loginRequired = throwable.isLmsLoginRequired(),
+                        )
+                    }
+                    return@launch
+                }
 
             dashboardRepository.getChapelData(year, semester)
                 .onSuccess { chapelData ->
@@ -102,6 +122,18 @@ class ChapelViewModel @Inject constructor(
                     termsError = null,
                 )
             }
+
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isTermsLoading = false,
+                            termsError = throwable.message,
+                            loginRequired = throwable.isLmsLoginRequired(),
+                        )
+                    }
+                    return@launch
+                }
 
             dashboardRepository.getAvailableChapelTerms(studentId) { term ->
                 _uiState.update { state ->

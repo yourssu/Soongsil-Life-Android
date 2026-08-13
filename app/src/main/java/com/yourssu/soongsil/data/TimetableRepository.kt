@@ -6,20 +6,20 @@ import com.yourssu.data.timetable.TimetableDayOfWeek
 import com.yourssu.data.timetable.TimetableSemester
 import com.yourssu.data.timetable.TimetableTerm
 import io.github.chlwhdtn03.LmsApi
-import io.github.chlwhdtn03.data.Lms.Term
 import io.github.chlwhdtn03.data.Lms.Semester
-import io.github.chlwhdtn03.data.Lms.DayOfWeek as LmsDayOfWeek
+import io.github.chlwhdtn03.data.Lms.Term
 import io.github.chlwhdtn03.data.Lms.Timetable
 import io.github.chlwhdtn03.data.Lms.TimetableCell
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import io.github.chlwhdtn03.data.Lms.DayOfWeek as LmsDayOfWeek
 
 @Singleton
 class TimetableRepository @Inject constructor(
@@ -87,12 +87,7 @@ class TimetableRepository @Inject constructor(
     }
 
     private suspend fun ensureActiveSession() {
-        if (lmsAuthRepository.hasActiveSession()) return
-
-        val credentials = lmsAuthRepository.getSavedCredentials()
-            ?: throw IllegalStateException("로그인이 필요합니다.")
-
-        lmsAuthRepository.login(credentials.studentId, credentials.password).getOrThrow()
+        lmsAuthRepository.ensureActiveSession().getOrThrow()
     }
 }
 

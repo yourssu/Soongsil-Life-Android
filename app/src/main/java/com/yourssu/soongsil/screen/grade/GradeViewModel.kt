@@ -7,6 +7,8 @@ import com.yourssu.data.grade.GradeSemester
 import com.yourssu.data.grade.GradeSemesterData
 import com.yourssu.data.grade.GradeSemesterSummary
 import com.yourssu.soongsil.data.GradeRepository
+import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import com.yourssu.soongsil.screen.grade.components.GradeRefreshStatus
 import com.yourssu.soongsil.screen.grade.model.CourseItem
 import com.yourssu.soongsil.screen.grade.model.GpaPoint
@@ -14,12 +16,12 @@ import com.yourssu.soongsil.screen.grade.model.SemesterTab
 import com.yourssu.soongsil.screen.grade.model.getGradeStyle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.chlwhdtn03.data.Lms.Semester
-import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class SemesterGradeUiData(
     val courses: List<CourseItem> = emptyList(),
@@ -39,12 +41,14 @@ data class GradeUiState(
     val refreshStatus: GradeRefreshStatus = GradeRefreshStatus.HIDDEN,
     val refreshMessage: String = "",
     val refreshCurrentStep: Int? = null,
-    val refreshTotalStep: Int? = null
+    val refreshTotalStep: Int? = null,
+    val loginRequired: Boolean = false
 )
 
 @HiltViewModel
 class GradeViewModel @Inject constructor(
-    private val gradeRepository: GradeRepository
+    private val gradeRepository: GradeRepository,
+    private val lmsAuthRepository: LmsAuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GradeUiState())
     val uiState = _uiState.asStateFlow()
@@ -71,6 +75,16 @@ class GradeViewModel @Inject constructor(
                 updateGradeState(gradeData)
             }
 
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(loginRequired = throwable.isLmsLoginRequired())
+                    }
+                    updateRefreshError(throwable.message)
+                    hideRefreshPopupAfterDelay()
+                    return@launch
+                }
+
             gradeRepository.refreshGradeOverview()
                 .onSuccess { overviewData ->
                     updateAndSaveGradeData(
@@ -91,6 +105,10 @@ class GradeViewModel @Inject constructor(
     // 선택한 학기 인덱스에 맞춰 화면 상태를 갱신합니다.
     fun selectSemester(selectedIndex: Int) {
         updateGradeState(currentGradeData, selectedIndex)
+    }
+
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
     }
 
     // 전체 학기의 상세 성적을 순서대로 갱신합니다.
