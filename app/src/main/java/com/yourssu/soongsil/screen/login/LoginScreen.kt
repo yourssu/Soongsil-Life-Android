@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -55,6 +58,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
 @Composable
 fun LoginScreen(
@@ -67,17 +71,62 @@ fun LoginScreen(
     var studentId by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    LoginScreenContent(
-        studentId = studentId,
-        password = password,
-        isLoading = isLoading,
-        errorMessage = errorMessage,
-        onStudentIdChange = { studentId = it },
-        onPasswordChange = { password = it },
-        onLoginClick = { onLoginClick(studentId, password) },
-        onForgotPasswordClick = onForgotPasswordClick,
-        modifier = modifier
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        LoginScreenContent(
+            studentId = studentId,
+            password = password,
+            isLoading = isLoading,
+            errorMessage = errorMessage,
+            // 학번 입력값에서는 숫자만 유지합니다.
+            onStudentIdChange = { studentId = it.filter(Char::isDigit) },
+            onPasswordChange = { password = it },
+            onLoginClick = { onLoginClick(studentId, password) },
+            onForgotPasswordClick = onForgotPasswordClick,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isLoading) {
+            LoginLoadingOverlay()
+        }
+    }
+}
+
+@Composable
+// 로그인 요청이 진행되는 동안 전체 화면 로딩 화면을 표시합니다.
+private fun LoginLoadingOverlay() {
+    val isDarkTheme = MaterialTheme.colorScheme.background == SoongsilPalette.Gray950
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else MaterialTheme.colorScheme.background
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(96.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = Color(0xFF1B2A4A),
+            strokeWidth = 8.dp
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        Text(
+            text = "로그인 중이에요",
+            color = if (isDarkTheme) Color(0xFFF5F5F5) else MaterialTheme.colorScheme.onBackground,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.4).sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "잠시만 기다려주세요",
+            color = if (isDarkTheme) Color(0xFFA1A1AA) else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            fontStyle = FontStyle.Italic
+        )
+    }
 }
 
 @Composable
@@ -394,5 +443,20 @@ private fun LoginScreenPreview() {
             onLoginClick = {},
             onForgotPasswordClick = {}
         )
+    }
+}
+
+@Preview(name = "Loading Light", showBackground = true, widthDp = 402, heightDp = 874)
+@Preview(
+    name = "Loading Dark",
+    showBackground = true,
+    widthDp = 402,
+    heightDp = 874,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun LoginLoadingScreenPreview() {
+    SoongsilLifeAndroidTheme {
+        LoginScreen(isLoading = true)
     }
 }

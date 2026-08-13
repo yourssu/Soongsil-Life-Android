@@ -37,6 +37,8 @@ fun MyPageScreen(
     gradeNotificationEnabled: Boolean,
     onGradeNotificationToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
+    onKeepClick: () -> Unit = {},
+    onCourseCatalogClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyPolicyClick: () -> Unit = {},
     versionName: String = BuildConfig.VERSION_NAME,
@@ -72,6 +74,19 @@ fun MyPageScreen(
                     text = "성적 알림 받기",
                     checked = gradeNotificationEnabled,
                     onCheckedChange = onGradeNotificationToggle
+                )
+            }
+
+            MyPageDivider()
+
+            MyPageSection(title = "실험실") {
+                MyPageMenuItem(
+                    text = "수강신청 장바구니 조회",
+                    onClick = onKeepClick
+                )
+                MyPageMenuItem(
+                    text = "강의시간표 조회",
+                    onClick = onCourseCatalogClick
                 )
             }
 

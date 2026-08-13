@@ -1,4 +1,4 @@
-package com.yourssu.soongsil
+﻿package com.yourssu.soongsil
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,24 +36,40 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
 import com.yourssu.data.nav.Chapel
+import com.yourssu.data.nav.CourseCatalog
 import com.yourssu.data.nav.Dashboard
 import com.yourssu.data.nav.Grade
 import com.yourssu.data.nav.Graduate
+import com.yourssu.data.nav.Keep
 import com.yourssu.data.nav.Login
 import com.yourssu.data.nav.MyPage
+import com.yourssu.data.nav.OnBoardingComplete
+import com.yourssu.data.nav.OnBoardingTerms
 import com.yourssu.data.nav.PushNotifications
 import com.yourssu.data.nav.Scholarship
 import com.yourssu.data.nav.Timetable
 import com.yourssu.soongsil.screen.chapel.ChapelScreen
+import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogScreen
+import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogViewModel
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
+import com.yourssu.soongsil.screen.keep.KeepScreen
+import com.yourssu.soongsil.screen.keep.KeepViewModel
 import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
 import com.yourssu.soongsil.screen.mypage.MyPageViewModel
+import com.yourssu.soongsil.screen.plan.PlanErrorDialog
+import com.yourssu.soongsil.screen.plan.PlanLoadingDialog
+import com.yourssu.soongsil.screen.plan.PlanPdfScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
+import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
+import com.yourssu.soongsil.screen.timetable.TimetableViewModel
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
@@ -67,6 +83,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+
             val navController = rememberNavController()
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
@@ -76,13 +93,17 @@ class MainActivity : ComponentActivity() {
                     .value
                     ?.destination
                     ?.route
-                val showBottomBar =
-                    currentRoute != null &&
-                            currentRoute != Login::class.qualifiedName
+                val showBottomBar = currentRoute !in setOf(
+                    Login::class.qualifiedName,
+                    OnBoardingTerms::class.qualifiedName,
+                    OnBoardingComplete::class.qualifiedName
+                )
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
                     currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
-                    currentRoute == MyPage::class.qualifiedName -> MainTab.MY_PAGE
+                    currentRoute == MyPage::class.qualifiedName ||
+                        currentRoute == Keep::class.qualifiedName ||
+                        currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
                     else -> MainTab.HOME
                 }
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
@@ -122,7 +143,12 @@ class MainActivity : ComponentActivity() {
 
                             LaunchedEffect(uiState.isLoginSuccessful) {
                                 if (uiState.isLoginSuccessful) {
-                                    navController.navigate(Dashboard) {
+                                    val destination = if (uiState.isOnboardingRequired) {
+                                        OnBoardingTerms
+                                    } else {
+                                        Dashboard
+                                    }
+                                    navController.navigate(destination) {
                                         popUpTo<Login> { inclusive = true }
                                         launchSingleTop = true
                                     }
@@ -134,6 +160,26 @@ class MainActivity : ComponentActivity() {
                                 isLoading = uiState.isLoading,
                                 errorMessage = uiState.error,
                                 onLoginClick = viewModel::login
+                            )
+                        }
+                        composable<OnBoardingTerms> {
+                            OnBoardingScreen(
+                                onTermsAgreementCompleted = {
+                                    navController.navigate(OnBoardingComplete) {
+                                        popUpTo<OnBoardingTerms> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                        composable<OnBoardingComplete> {
+                            OnBoardingCompleteScreen(
+                                onStartClick = {
+                                    navController.navigate(Dashboard) {
+                                        popUpTo<OnBoardingComplete> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                         composable<Dashboard> {
@@ -180,7 +226,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable<Grade> {
-                            GradeDetailScreen()
+                            GradeDetailScreen(onBackClick = { navController.popBackStack() })
                         }
                         composable<Graduate> {
                             // TODO: Implement GraduateScreen
@@ -204,17 +250,126 @@ class MainActivity : ComponentActivity() {
                             MyPageScreen(
                                 gradeNotificationEnabled = gradeNotificationEnabled,
                                 onGradeNotificationToggle = viewModel::setGradeNotificationEnabled,
-                                onLogoutClick = viewModel::logout
+                                onLogoutClick = viewModel::logout,
+                                onKeepClick = { navController.navigate(Keep) },
+                                onCourseCatalogClick = { navController.navigate(CourseCatalog) }
                             )
                         }
+                        composable<Keep> {
+                            val viewModel: KeepViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Keep> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
+                            val planState = uiState.planPdfState
+                            val pdf = planState.pdf
+                            if (pdf != null) {
+                                PlanPdfScreen(
+                                    title = pdf.title,
+                                    pdfBytes = pdf.bytes,
+                                    onBackClick = viewModel::closePlan
+                                )
+                            } else {
+                                KeepScreen(
+                                    uiState = uiState,
+                                    onBackClick = { navController.popBackStack() },
+                                    onRefresh = viewModel::refresh,
+                                    onRetryClick = viewModel::retry,
+                                    onPlanClick = viewModel::loadPlan
+                                )
+                            }
+
+                            if (planState.isLoading) {
+                                PlanLoadingDialog(
+                                    title = planState.loadingTitle,
+                                    onCancel = viewModel::cancelPlanLoading
+                                )
+                            }
+                            planState.errorMessage?.let { message ->
+                                PlanErrorDialog(
+                                    message = message,
+                                    onDismiss = viewModel::dismissPlanError
+                                )
+                            }
+                        }
+                        composable<CourseCatalog> {
+                            val viewModel: CourseCatalogViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+                            val planState = uiState.planPdfState
+                            val pdf = planState.pdf
+
+                            if (pdf != null) {
+                                PlanPdfScreen(
+                                    title = pdf.title,
+                                    pdfBytes = pdf.bytes,
+                                    onBackClick = viewModel::closePlan
+                                )
+                            } else {
+                                CourseCatalogScreen(
+                                    uiState = uiState,
+                                    onBackClick = { navController.popBackStack() },
+                                    onYearChange = viewModel::setYear,
+                                    onSemesterChange = viewModel::setSemester,
+                                    onCategoryChange = viewModel::setCategory,
+                                    onFilterSelect = viewModel::selectFilter,
+                                    onKeywordChange = viewModel::setKeyword,
+                                    onSearchClick = viewModel::search,
+                                    onRetryOptions = viewModel::retrySearchOptions,
+                                    onRefresh = viewModel::refresh,
+                                    onPlanClick = viewModel::loadPlan
+                                )
+                            }
+
+                            if (planState.isLoading) {
+                                PlanLoadingDialog(
+                                    title = planState.loadingTitle,
+                                    onCancel = viewModel::cancelPlanLoading
+                                )
+                            }
+                            planState.errorMessage?.let { message ->
+                                PlanErrorDialog(
+                                    message = message,
+                                    onDismiss = viewModel::dismissPlanError
+                                )
+                            }
+                        }
                         composable<Timetable> {
-                            TimetableScreen()
+                            val viewModel: TimetableViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            TimetableScreen(
+                                uiState = uiState,
+                                onRetry = viewModel::retry,
+                                onCourseClick = viewModel::selectCourse,
+                                onDismissCourseDetail = viewModel::dismissCourseDetail
+                            )
                         }
                         composable<PushNotifications> {
                             PushNotificationsScreen()
                         }
                         composable<Scholarship> {
-                            // TODO: Implement MyPageScreen
+                            val viewModel: ScholarshipViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            ScholarshipScreen(
+                                tuitionHistories = uiState.tuitionHistories,
+                                isTuitionLoading = uiState.isTuitionLoading,
+                                tuitionErrorMessage = uiState.tuitionErrorMessage,
+                                onTuitionRetryClick = viewModel::loadTuitionHistories,
+                                scholarshipHistories = uiState.scholarshipHistories,
+                                isScholarshipLoading = uiState.isScholarshipLoading,
+                                scholarshipErrorMessage = uiState.scholarshipErrorMessage,
+                                onScholarshipRetryClick = viewModel::loadScholarshipHistories,
+                                onBackClick = navController::popBackStack
+                            )
                         }
                             composable<Chapel> {
                                 ChapelScreen()
@@ -267,3 +422,5 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }
+
+
