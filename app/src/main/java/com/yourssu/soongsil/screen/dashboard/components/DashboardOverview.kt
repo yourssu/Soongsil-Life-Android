@@ -80,7 +80,7 @@ fun DashboardGradeSection(
     semesterRank: String,
     totalRank: String,
     semesterGrades: List<DashboardSemesterGrade>,
-    onDetailClick: () -> Unit,
+    showGraphData: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -111,27 +111,34 @@ fun DashboardGradeSection(
 
         DashboardGpaLineChart(
             grades = semesterGrades,
+            showData = showGraphData,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 20.dp)
         )
+    }
+}
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable(onClick = onDetailClick)
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "학기별 성적보기  →",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontFamily = PretendardFontFamily,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+@Composable
+fun DashboardGradeDetailButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "학기별 성적보기  →",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontFamily = PretendardFontFamily,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -178,6 +185,7 @@ private fun DashboardGradeMetric(label: String, value: String, total: String) {
 @Composable
 private fun DashboardGpaLineChart(
     grades: List<DashboardSemesterGrade>,
+    showData: Boolean,
     modifier: Modifier = Modifier
 ) {
     val points = grades.takeLast(8)
@@ -210,7 +218,8 @@ private fun DashboardGpaLineChart(
                     val y = size.height * index / 3f
                     drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
                 }
-                if (points.isNotEmpty()) {
+                // 블러 상태에서는 축과 눈금만 남기고 성적 선·점·면적 데이터는 그리지 않습니다.
+                if (showData && points.isNotEmpty()) {
                     val xGap = if (points.size == 1) 0f else size.width / (points.size - 1)
                     val offsets = points.mapIndexed { index, grade ->
                         val value = (grade.gpa.toFloatOrNull() ?: 0f).coerceIn(1f, 4.5f)

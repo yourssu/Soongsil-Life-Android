@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,6 +31,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -88,6 +92,19 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             val navController = rememberNavController()
+            var isDashboardGradeRevealed by remember { mutableStateOf(false) }
+
+            // 앱이 백그라운드로 내려가면 다음 진입부터 성적을 다시 가립니다.
+            DisposableEffect(Unit) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP) {
+                        isDashboardGradeRevealed = false
+                    }
+                }
+                this@MainActivity.lifecycle.addObserver(observer)
+                onDispose { this@MainActivity.lifecycle.removeObserver(observer) }
+            }
+
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
             ) {
@@ -211,12 +228,14 @@ class MainActivity : ComponentActivity() {
                                 chapelSeat = dashboardData?.chapel?.seat.orEmpty(),
                                 chapelRequired = dashboardData?.chapel?.required ?: 0,
                                 chapelAttended = dashboardData?.chapel?.attended ?: 0,
+                                isGradeBlurred = !isDashboardGradeRevealed,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
                                 refreshErrorMessage = uiState.error,
                                 isPullRefreshing = uiState.isPullRefreshing,
                                 onPullToRefresh = viewModel::pullToRefresh,
                                 onRefreshRetryClick = viewModel::retryRefresh,
+                                onGradeBlurClick = { isDashboardGradeRevealed = true },
                                 onGradeDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },

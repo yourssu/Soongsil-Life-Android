@@ -2,6 +2,7 @@ package com.yourssu.soongsil.screen.dashboard
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -10,25 +11,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.data.dashboard.DashboardSemesterGrade
 import com.yourssu.soongsil.screen.dashboard.components.DashboardChapelSection
+import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeDetailButton
 import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeSection
 import com.yourssu.soongsil.screen.dashboard.components.DashboardQuickLinks
 import com.yourssu.soongsil.screen.dashboard.components.DashboardRefreshPopup
 import com.yourssu.soongsil.screen.dashboard.components.DashboardTopBar
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
+import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
@@ -53,7 +63,29 @@ private fun DashboardScreenPreview() {
             ),
             chapelSeat = "A-1-2",
             chapelRequired = 8,
-            chapelAttended = 3
+            chapelAttended = 3,
+            isGradeBlurred = false
+        )
+    }
+}
+
+@Composable
+@Preview(name = "성적 블러 - Light")
+@Preview(name = "성적 블러 - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+private fun DashboardGradeBlurPreview() {
+    SoongsilLifeAndroidTheme {
+        DashboardScreen(
+            gpa = "4.06",
+            earnedCredits = "104",
+            semesterRank = "21/102",
+            totalRank = "37/121",
+            semesterGrades = listOf(
+                DashboardSemesterGrade("1-1", "2.70"),
+                DashboardSemesterGrade("2-1", "3.48"),
+                DashboardSemesterGrade("3-1", "3.31"),
+                DashboardSemesterGrade("4-1", "3.52")
+            ),
+            isGradeBlurred = true
         )
     }
 }
@@ -72,12 +104,14 @@ fun DashboardScreen(
     chapelSeat: String = "",
     chapelRequired: Int = 0,
     chapelAttended: Int = 0,
+    isGradeBlurred: Boolean = true,
     refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.HIDDEN,
     refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
     refreshErrorMessage: String? = null,
     isPullRefreshing: Boolean = false,
     onPullToRefresh: () -> Unit = {},
     onRefreshRetryClick: () -> Unit = {},
+    onGradeBlurClick: () -> Unit = {},
     onGradeDetailClick: () -> Unit = {},
     onChapelClick: () -> Unit = {},
     onGraduateClick: () -> Unit = {},
@@ -114,16 +148,58 @@ fun DashboardScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    DashboardGradeSection(
-                        gpa = gpa.ifBlank { "-" },
-                        maxGpa = maxGpa,
-                        earnedCredits = earnedCredits.ifBlank { "-" },
-                        requiredCredits = requiredCredits,
-                        semesterRank = semesterRank.ifBlank { "-" },
-                        totalRank = totalRank.ifBlank { "-" },
-                        semesterGrades = semesterGrades,
-                        onDetailClick = onGradeDetailClick,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                enabled = isGradeBlurred,
+                                onClick = onGradeBlurClick
+                            )
+                    ) {
+                        DashboardGradeSection(
+                            gpa = gpa.ifBlank { "-" },
+                            maxGpa = maxGpa,
+                            earnedCredits = earnedCredits.ifBlank { "-" },
+                            requiredCredits = requiredCredits,
+                            semesterRank = semesterRank.ifBlank { "-" },
+                            totalRank = totalRank.ifBlank { "-" },
+                            semesterGrades = semesterGrades,
+                            showGraphData = !isGradeBlurred,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .blur(
+                                    radius = if (isGradeBlurred) 14.dp else 0.dp,
+                                    edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                )
+                                .padding(horizontal = 24.dp, vertical = 12.dp)
+                        )
+                        if (isGradeBlurred) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "한번 눌러서 블러 해제",
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color.White.copy(alpha = 1f),
+                                            shape = RoundedCornerShape(24.dp)
+                                        )
+                                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    fontFamily = PretendardFontFamily,
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    DashboardGradeDetailButton(
+                        onClick = onGradeDetailClick,
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
 
                     Spacer(
