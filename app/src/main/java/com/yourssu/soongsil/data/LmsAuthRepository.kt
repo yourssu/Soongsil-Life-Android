@@ -71,7 +71,14 @@ class LmsAuthRepository @Inject constructor(
         }
     }
 
-    suspend fun login(studentId: String, password: String): Result<Unit> =
+    suspend fun login(studentId: String, password: String): Result<Unit> = loginMutex.withLock {
+        // 이미 생성된 LMS 세션이 있으면 중복 로그인을 요청하지 않습니다.
+        if (hasActiveSession()) return@withLock Result.success(Unit)
+
+        performLogin(studentId, password)
+    }
+
+    private suspend fun performLogin(studentId: String, password: String): Result<Unit> =
         suspendCancellableCoroutine { continuation ->
             LmsApi.loginLMS(studentId, password) { result ->
                 if (!continuation.isActive) return@loginLMS
@@ -94,7 +101,10 @@ class LmsAuthRepository @Inject constructor(
     suspend fun loginAndSaveCredentials(studentId: String, password: String): Result<Unit> {
         val loginTask = loginScope.async {
             loginMutex.withLock {
-                login(studentId, password).getOrThrow()
+                // 다른 화면에서 먼저 로그인했다면 입력값을 덮어쓰지 않고 그대로 완료합니다.
+                if (hasActiveSession()) return@withLock
+
+                performLogin(studentId, password).getOrThrow()
                 saveCredentials(studentId, password).getOrElse { throwable ->
                     throw IllegalStateException(
                         "로그인 정보를 안전하게 저장하지 못했습니다.",
