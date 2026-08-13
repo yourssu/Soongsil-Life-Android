@@ -9,11 +9,11 @@ import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.data.dashboard.DashboardChapelTerm
 import com.yourssu.data.dashboard.DashboardChapelWeeklyAttendance
 import com.yourssu.data.dashboard.DashboardData
+import com.yourssu.data.dashboard.DashboardGradeOverview
 import com.yourssu.data.dashboard.DashboardSemesterGrade
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.data.Lms.ChapelInformation
-import io.github.chlwhdtn03.data.Lms.Info
 import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.SemesterGradeSummaryTable
 import kotlinx.coroutines.async
@@ -98,34 +98,24 @@ class DashboardRepository @Inject constructor(
     suspend fun refreshData(
         studentId: String,
         onRequestCompleted: (Int) -> Unit = {},
-        onStudentInfoLoaded: (Info) -> Unit = {},
-        onGradesLoaded: (String, List<DashboardSemesterGrade>) -> Unit = { _, _ -> },
+        onGradesLoaded: (DashboardGradeOverview) -> Unit = {},
         onChapelLoaded: (DashboardChapelData) -> Unit = {}
     ): Result<DashboardData> = runCatching {
         supervisorScope {
             val completedCount = AtomicInteger(0)
 
-            // 로그인 이후 독립적인 네 요청을 먼저 모두 시작해 응답 대기 시간을 겹칩니다.
+            // 로그인 이후 독립적인 세 요청을 먼저 모두 시작해 응답 대기 시간을 겹칩니다.
             val termsRequest = async {
                 runCatching { getTerms() }
                     .onSuccess { Log.d(TAG, "학기 정보 로드 성공") }
                     .onFailure { Log.e(TAG, "학기 정보 로드 실패", it) }
                     .also { onRequestCompleted(completedCount.incrementAndGet()) }
             }
-            val studentInfoRequest = async {
-                runCatching { getLoginInfo() }
-                    .onSuccess {
-                        Log.d(TAG, "사용자 정보 로드 성공: 1건")
-                        onStudentInfoLoaded(it)
-                    }
-                    .onFailure { Log.e(TAG, "사용자 정보 로드 실패", it) }
-                    .also { onRequestCompleted(completedCount.incrementAndGet()) }
-            }
             val gradesRequest = async {
                 runCatching { LmsApi.getSemesterGradeSummaryTable() }
                     .onSuccess {
                         Log.d(TAG, "학기별 성적 로드 성공: ${it.items.size}건")
-                        onGradesLoaded(it.calculateOverallGpa(), it.toDashboardGrades())
+                        onGradesLoaded(it.toDashboardGradeOverview())
                     }
                     .onFailure { Log.e(TAG, "학기별 성적 로드 실패", it) }
                     .also { onRequestCompleted(completedCount.incrementAndGet()) }
@@ -142,20 +132,19 @@ class DashboardRepository @Inject constructor(
 
             // 한 요청이 실패해도 이미 실행 중인 나머지 요청의 응답까지 모두 받습니다.
             val termsResult = termsRequest.await()
-            val loginInfoResult = studentInfoRequest.await()
             val gradesResult = gradesRequest.await()
             val chapelResult = chapelRequest.await()
 
             termsResult.getOrThrow()
-            val loginInfo = loginInfoResult.getOrThrow()
             val grades = gradesResult.getOrThrow()
             val chapel = chapelResult.getOrThrow()
 
             val dashboardData = DashboardData(
-                studentName = loginInfo.user_name,
-                department = loginInfo.dept_name,
                 studentId = studentId,
                 overallGpa = grades.calculateOverallGpa(),
+                earnedCredits = grades.calculateEarnedCredits(),
+                semesterRank = grades.latestSemesterRank(),
+                totalRank = grades.latestTotalRank(),
                 semesterGrades = grades.toDashboardGrades(),
                 chapel = chapel
             )
@@ -180,21 +169,6 @@ class DashboardRepository @Inject constructor(
         }
     }
 
-    private suspend fun getLoginInfo(): Info = suspendCancellableCoroutine { continuation ->
-        LmsApi.getLoginInfo { result ->
-            if (!continuation.isActive) return@getLoginInfo
-
-            val info = result.info
-            if (result.success && info != null) {
-                continuation.resume(info)
-            } else {
-                continuation.resumeWithException(
-                    IllegalStateException(result.errorMessage ?: "사용자 정보를 불러오지 못했습니다.")
-                )
-            }
-        }
-    }
-
     private fun SemesterGradeSummaryTable.calculateOverallGpa(): String {
         val gradePointSum = items.sumOf { it.gpaSum.toDoubleOrNull() ?: 0.0 }
         val gradedCredits = items.sumOf {
@@ -206,6 +180,29 @@ class DashboardRepository @Inject constructor(
 
         return String.format(Locale.US, "%.2f", gradePointSum / gradedCredits)
     }
+
+    private fun SemesterGradeSummaryTable.toDashboardGradeOverview() = DashboardGradeOverview(
+        overallGpa = calculateOverallGpa(),
+        earnedCredits = calculateEarnedCredits(),
+        semesterRank = latestSemesterRank(),
+        totalRank = latestTotalRank(),
+        semesterGrades = toDashboardGrades()
+    )
+
+    private fun SemesterGradeSummaryTable.calculateEarnedCredits(): String {
+        val credits = items.sumOf { it.earnedCredits.toDoubleOrNull() ?: 0.0 }
+        return if (credits % 1.0 == 0.0) credits.toInt().toString() else credits.toString()
+    }
+
+    private fun SemesterGradeSummaryTable.latestSemesterRank(): String =
+        items.maxWithOrNull(
+            compareBy({ it.year }, { it.semester?.ordinal ?: -1 })
+        )?.semesterRank.orEmpty()
+
+    private fun SemesterGradeSummaryTable.latestTotalRank(): String =
+        items.maxWithOrNull(
+            compareBy({ it.year }, { it.semester?.ordinal ?: -1 })
+        )?.totalRank.orEmpty()
 
     private fun SemesterGradeSummaryTable.toDashboardGrades(): List<DashboardSemesterGrade> =
         items.sortedWith(compareBy({ it.year }, { it.semester?.ordinal }))
@@ -309,6 +306,6 @@ class DashboardRepository @Inject constructor(
 
     private companion object {
         const val TAG = "DashboardRepository"
-        const val MAX_VISIBLE_SEMESTERS = 5
+        const val MAX_VISIBLE_SEMESTERS = 8
     }
 }

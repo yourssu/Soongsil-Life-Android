@@ -39,8 +39,9 @@ enum class MainTab(
 ) {
     HOME("홈", R.drawable.ic_tabbar_house),
     TIMETABLE("시간표", null),
-    NOTIFICATIONS("알림", R.drawable.ic_tabbar_bell),
-    MY_PAGE("마이", R.drawable.ic_tabbar_user)
+//    TODO 알림 기능 구현시 복원
+//    NOTIFICATIONS("알림", R.drawable.ic_tabbar_bell),
+    MY_PAGE("마이", R.drawable.ic_tabbar_user),
 }
 
 @Composable

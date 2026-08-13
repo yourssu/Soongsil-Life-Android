@@ -222,8 +222,7 @@ private fun DashboardRefreshStatus.description(
 private fun DashboardRefreshStep.description(): String = when (this) {
     DashboardRefreshStep.CONNECTING -> "LMS에 연결"
     DashboardRefreshStep.ONE_COMPLETED,
-    DashboardRefreshStep.TWO_COMPLETED,
-    DashboardRefreshStep.THREE_COMPLETED -> "학기·개인·성적·채플 정보를 동시에 불러오는 중"
+    DashboardRefreshStep.TWO_COMPLETED -> "학기·성적·채플 정보를 동시에 불러오는 중"
     DashboardRefreshStep.COMPLETED -> "불러온 정보를 화면에 반영하는 중"
 }
 

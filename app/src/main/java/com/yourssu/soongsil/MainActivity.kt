@@ -104,7 +104,8 @@ class MainActivity : ComponentActivity() {
                 )
                 val selectedTab = when {
                     currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
-                    currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
+//                    TODO 알림 기능 구현시 복원
+//                    currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
                     currentRoute == MyPage::class.qualifiedName ||
                         currentRoute == Keep::class.qualifiedName ||
                         currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
@@ -202,20 +203,14 @@ class MainActivity : ComponentActivity() {
                             }
 
                             DashboardScreen(
-                                greetingName = dashboardData?.studentName.orEmpty(),
-                                profileName = dashboardData?.studentName.orEmpty(),
-                                department = dashboardData?.department.orEmpty(),
-                                studentId = dashboardData?.studentId.orEmpty(),
                                 gpa = dashboardData?.overallGpa.orEmpty(),
+                                earnedCredits = dashboardData?.earnedCredits.orEmpty(),
+                                semesterRank = dashboardData?.semesterRank.orEmpty(),
+                                totalRank = dashboardData?.totalRank.orEmpty(),
                                 semesterGrades = dashboardData?.semesterGrades.orEmpty(),
                                 chapelSeat = dashboardData?.chapel?.seat.orEmpty(),
-                                chapelSeatDescription = dashboardData?.chapel?.seatDescription.orEmpty(),
-                                chapelRemaining = dashboardData?.chapel?.remaining ?: 0,
                                 chapelRequired = dashboardData?.chapel?.required ?: 0,
                                 chapelAttended = dashboardData?.chapel?.attended ?: 0,
-                                chapelLate = dashboardData?.chapel?.late ?: 0,
-                                chapelAbsent = dashboardData?.chapel?.absent ?: 0,
-                                chapelProgress = dashboardData?.chapel?.progress ?: 0f,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
                                 refreshErrorMessage = uiState.error,
@@ -223,7 +218,6 @@ class MainActivity : ComponentActivity() {
                                 onPullToRefresh = viewModel::pullToRefresh,
                                 onRefreshRetryClick = viewModel::retryRefresh,
                                 onGradeDetailClick = { navController.navigate(Grade) },
-                                onChartDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },
                                 onScholarshipClick = { navController.navigate(Scholarship) }
@@ -497,7 +491,8 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
     when (tab) {
         MainTab.HOME -> Unit
         MainTab.TIMETABLE -> navigate(Timetable, options)
-        MainTab.NOTIFICATIONS -> navigate(PushNotifications, options)
+        //                    TODO 알림 기능 구현시 복원
+//        MainTab.NOTIFICATIONS -> navigate(PushNotifications, options)
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }

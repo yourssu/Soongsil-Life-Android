@@ -8,8 +8,19 @@ data class DashboardData(
     val department: String = "",
     val studentId: String = "",
     val overallGpa: String = "",
+    val earnedCredits: String = "",
+    val semesterRank: String = "",
+    val totalRank: String = "",
     val semesterGrades: List<DashboardSemesterGrade> = emptyList(),
     val chapel: DashboardChapelData = DashboardChapelData()
+)
+
+data class DashboardGradeOverview(
+    val overallGpa: String,
+    val earnedCredits: String,
+    val semesterRank: String,
+    val totalRank: String,
+    val semesterGrades: List<DashboardSemesterGrade>
 )
 
 @Serializable
@@ -52,17 +63,15 @@ enum class DashboardRefreshStep(val current: Int) {
     CONNECTING(0),
     ONE_COMPLETED(1),
     TWO_COMPLETED(2),
-    THREE_COMPLETED(3),
-    COMPLETED(4);
+    COMPLETED(3);
 
     companion object {
-        const val TOTAL = 4
+        const val TOTAL = 3
 
         fun fromCompletedCount(count: Int): DashboardRefreshStep = when (count) {
             1 -> ONE_COMPLETED
             2 -> TWO_COMPLETED
-            3 -> THREE_COMPLETED
-            4 -> COMPLETED
+            3 -> COMPLETED
             else -> CONNECTING
         }
     }
