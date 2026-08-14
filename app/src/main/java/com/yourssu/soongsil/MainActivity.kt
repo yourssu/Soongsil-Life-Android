@@ -120,7 +120,6 @@ class MainActivity : ComponentActivity() {
                     currentDestination.hasRoute(Login::class) -> false
                     currentDestination.hasRoute(OnBoardingTerms::class) -> false
                     currentDestination.hasRoute(OnBoardingComplete::class) -> false
-                    currentDestination.hasRoute(Graduate::class) -> false
                     else -> true
                 }
 

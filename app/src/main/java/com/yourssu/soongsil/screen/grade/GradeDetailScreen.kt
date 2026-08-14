@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -65,13 +66,14 @@ fun GradeDetailScreen(
 
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        start = 20.dp,
-                        end = 20.dp,
-                        top = 8.dp,
-                        bottom = 20.dp + bottomBarPadding
-                    ),
+                    .weight(1f),
+                // 대시보드처럼 목록 끝에 바텀바 높이만큼 스크롤 여백을 둡니다.
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 8.dp,
+                    bottom = 20.dp + bottomBarPadding
+                ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
