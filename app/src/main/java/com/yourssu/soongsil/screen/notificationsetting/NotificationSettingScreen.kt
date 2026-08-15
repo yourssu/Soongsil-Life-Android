@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -268,6 +269,7 @@ private fun NotificationToggle(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val toggleShape = RoundedCornerShape(13.dp)
     val trackColor by animateColorAsState(
         targetValue = if (checked) ToggleOnColor else ToggleOffColor,
         label = "toggleTrackColor"
@@ -279,13 +281,12 @@ private fun NotificationToggle(
     Box(
         modifier = modifier
             .size(width = 44.dp, height = 26.dp)
-            .background(trackColor, RoundedCornerShape(13.dp))
+            .clip(toggleShape)
+            .background(trackColor, toggleShape)
             .toggleable(
                 value = checked,
                 onValueChange = onCheckedChange,
-                role = Role.Switch,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
+                role = Role.Switch
             )
             .padding(horizontal = 3.dp),
         contentAlignment = Alignment.CenterStart

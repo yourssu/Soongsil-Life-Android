@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -61,16 +62,19 @@ fun MainBottomBar(
         ) {
             MainTab.entries.forEach { tab ->
                 val isSelected = tab == selectedTab
+                val tabShape = RoundedCornerShape(9999.dp)
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        // 탭의 눌림 효과가 알약 모양 밖으로 퍼지지 않도록 먼저 자릅니다.
+                        .clip(tabShape)
                         .background(
                             color = if (isSelected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 Color.Transparent
                             },
-                            shape = RoundedCornerShape(9999.dp)
+                            shape = tabShape
                         )
                         .clickable(role = Role.Tab) { onTabSelected(tab) }
                         .padding(top = 8.dp),

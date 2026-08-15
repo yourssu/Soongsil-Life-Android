@@ -10,10 +10,12 @@ import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.Term
 import io.github.chlwhdtn03.data.Lms.Timetable
 import io.github.chlwhdtn03.data.Lms.TimetableCell
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.time.Year
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,6 +62,28 @@ class TimetableRepository @Inject constructor(
         }
     }
 
+    suspend fun getDefaultTimetable(): TimetableData {
+        ensureActiveSession()
+
+        return suspendCancellableCoroutine { continuation ->
+            LmsApi.getTimetable { result ->
+                if (!continuation.isActive) return@getTimetable
+
+                val timetable = result.timetable
+                if (result.success && timetable != null && timetable.hasTermInformation()) {
+                    continuation.resume(timetable.toTimetableData())
+                } else {
+                    // 기본 조회가 빈 응답이면 현재 연도의 실제 강의가 있는 정규 학기를 찾습니다.
+                    loadLatestRegularTimetable(
+                        year = Year.now().value.toString(),
+                        continuation = continuation,
+                        fallbackMessage = result.errorMessage
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun getTimetable(
         year: String,
         semester: TimetableSemester
@@ -89,6 +113,39 @@ class TimetableRepository @Inject constructor(
     private suspend fun ensureActiveSession() {
         lmsAuthRepository.ensureActiveSession().getOrThrow()
     }
+
+    private fun loadLatestRegularTimetable(
+        year: String,
+        continuation: CancellableContinuation<TimetableData>,
+        fallbackMessage: String?
+    ) {
+        val semesters = listOf(Semester.SECOND, Semester.FIRST)
+
+        fun loadAt(index: Int) {
+            if (!continuation.isActive) return
+            if (index >= semesters.size) {
+                continuation.resumeWithException(
+                    IllegalStateException(fallbackMessage ?: "기본 시간표를 불러오지 못했습니다.")
+                )
+                return
+            }
+
+            LmsApi.getTimetable(year = year, semester = semesters[index]) { result ->
+                val timetable = result.timetable
+                if (result.success && timetable != null && timetable.items.isNotEmpty()) {
+                    continuation.resume(timetable.toTimetableData())
+                } else {
+                    loadAt(index + 1)
+                }
+            }
+        }
+
+        loadAt(0)
+    }
+}
+
+private fun Timetable.hasTermInformation(): Boolean {
+    return year.isNotBlank() && semester.isNotBlank()
 }
 
 private fun TimetableSemester.toLmsSemester(): Semester = when (this) {
@@ -98,23 +155,43 @@ private fun TimetableSemester.toLmsSemester(): Semester = when (this) {
     TimetableSemester.WINTER -> Semester.WINTER
 }
 
+private fun Semester.toTimetableSemester(): TimetableSemester = when (this) {
+    Semester.FIRST -> TimetableSemester.FIRST
+    Semester.SUMMER -> TimetableSemester.SUMMER
+    Semester.SECOND -> TimetableSemester.SECOND
+    Semester.WINTER -> TimetableSemester.WINTER
+}
+
 @OptIn(kotlin.time.ExperimentalTime::class)
 internal fun List<Term>.toAvailableTimetableTerms(): List<TimetableTerm> {
     return mapNotNull { it.toTimetableTermOrNull() }
-        .distinctBy { it.year to it.semester }
-        .sortedWith(
-            compareByDescending<TimetableTerm> { it.year.toIntOrNull() ?: Int.MIN_VALUE }
-                .thenBy { it.semester.sortOrder }
-        )
+        .withAdditionalTimetableTerm(null)
 }
 
 internal fun List<String?>.parseAvailableTimetableTerms(): List<TimetableTerm> {
     return mapNotNull { it.toTimetableTermOrNull() }
+        .withAdditionalTimetableTerm(null)
+}
+
+internal fun List<TimetableTerm>.withAdditionalTimetableTerm(
+    additionalTerm: TimetableTerm?
+): List<TimetableTerm> {
+    val sortedTerms = (this + listOfNotNull(additionalTerm))
         .distinctBy { it.year to it.semester }
         .sortedWith(
             compareByDescending<TimetableTerm> { it.year.toIntOrNull() ?: Int.MIN_VALUE }
                 .thenBy { it.semester.sortOrder }
         )
+
+    if (additionalTerm == null) return sortedTerms
+
+    // 화면 진입 시 매개변수 없는 기본 시간표 학기를 먼저 선택할 수 있도록 맨 앞으로 이동합니다.
+    val currentTerm = sortedTerms.firstOrNull {
+        it.year == additionalTerm.year && it.semester == additionalTerm.semester
+    } ?: return sortedTerms
+    return listOf(currentTerm) + sortedTerms.filterNot {
+        it.year == currentTerm.year && it.semester == currentTerm.semester
+    }
 }
 
 private fun Timetable.toTimetableData(): TimetableData {
@@ -125,6 +202,21 @@ private fun Timetable.toTimetableData(): TimetableData {
         year = year.normalizeWhitespace(),
         semester = semester.normalizeWhitespace(),
         courses = courses
+    )
+}
+
+internal fun timetableTermOf(year: String, semester: String): TimetableTerm? {
+    val academicYear = TIMETABLE_TERM_YEAR_REGEX.find(year)?.value ?: return null
+    // LMS 코드값은 라이브러리의 Semester 정의를 사용하고, 화면 표시명도 함께 지원합니다.
+    val timetableSemester = Semester.entries
+        .firstOrNull { it.code == semester.trim() }
+        ?.toTimetableSemester()
+        ?: TimetableSemester.fromName(semester)
+        ?: return null
+    return TimetableTerm(
+        year = academicYear,
+        semester = timetableSemester,
+        sourceName = "$year $semester".normalizeWhitespace()
     )
 }
 

@@ -32,12 +32,14 @@ enum class TimetableSemester(val label: String) {
             val lowercaseValue = normalizedValue.lowercase(Locale.ROOT)
             return when {
                 normalizedValue.isBlank() -> null
-                normalizedValue == FIRST.name || normalizedValue.startsWith("1") -> FIRST
+                normalizedValue == FIRST.name ||
+                    normalizedValue.startsWith("1") -> FIRST
                 normalizedValue == SUMMER.name ||
                     normalizedValue.startsWith("하계") ||
                     normalizedValue.startsWith("여름") ||
                     lowercaseValue.startsWith("summer") -> SUMMER
-                normalizedValue == SECOND.name || normalizedValue.startsWith("2") -> SECOND
+                normalizedValue == SECOND.name ||
+                    normalizedValue.startsWith("2") -> SECOND
                 normalizedValue == WINTER.name ||
                     normalizedValue.startsWith("동계") ||
                     normalizedValue.startsWith("겨울") ||

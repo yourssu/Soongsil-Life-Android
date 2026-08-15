@@ -593,9 +593,9 @@ private fun ChapelSemesterSelector(
 
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = enabled) { expanded = true },
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(14.dp),
         ) {

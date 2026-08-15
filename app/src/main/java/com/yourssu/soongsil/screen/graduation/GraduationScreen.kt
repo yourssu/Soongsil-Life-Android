@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -411,17 +412,19 @@ private fun GraduationSummaryCard(
                 color = if (isPass) SoongsilPalette.Green500 else SoongsilPalette.Red400
             )
         }
+        val detailButtonShape = RoundedCornerShape(100.dp)
         Box(
             modifier = Modifier
                 .width(if (showSubjectDetails) 99.5.dp else 89.dp)
                 .height(30.5.dp)
+                .clip(detailButtonShape)
                 .background(
                     if (isSystemInDarkTheme()) {
                         MaterialTheme.colorScheme.surfaceContainer
                     } else {
                         SoongsilPalette.Gray175
                     },
-                    RoundedCornerShape(100.dp)
+                    detailButtonShape
                 )
                 .clickable(onClick = onDetailClick),
             contentAlignment = Alignment.Center
