@@ -6,6 +6,7 @@ import com.yourssu.data.keep.KeepCourse
 import com.yourssu.data.keep.KeepData
 import com.yourssu.soongsil.data.KeepRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import com.yourssu.soongsil.screen.plan.PlanPdfData
 import com.yourssu.soongsil.screen.plan.PlanPdfUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -85,7 +86,8 @@ class KeepViewModel @Inject constructor(
                         it.copy(
                             planPdfState = PlanPdfUiState(
                                 errorMessage = throwable.message ?: "로그인이 필요합니다."
-                            )
+                            ),
+                            loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
                     return@launch
@@ -154,7 +156,7 @@ class KeepViewModel @Inject constructor(
                         isLoading = false,
                         isRefreshing = false,
                         errorMessage = throwable.message,
-                        loginRequired = true
+                        loginRequired = throwable.isLmsLoginRequired()
                     )
                 }
                 return
@@ -183,10 +185,6 @@ class KeepViewModel @Inject constructor(
     }
 
     private suspend fun ensureLoggedIn(): Result<Unit> {
-        if (lmsAuthRepository.hasActiveSession()) return Result.success(Unit)
-
-        val credentials = lmsAuthRepository.getSavedCredentials()
-            ?: return Result.failure(IllegalStateException("로그인이 필요합니다."))
-        return lmsAuthRepository.login(credentials.studentId, credentials.password)
+        return lmsAuthRepository.ensureActiveSession()
     }
 }

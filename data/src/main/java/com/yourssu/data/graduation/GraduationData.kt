@@ -11,6 +11,7 @@ import kotlinx.serialization.Serializable
  * @param calculatedValue 계산값 (예: "131.0")
  * @param difference 기준값과 계산값의 차이 (예: "-2.0")
  * @param result 이수 여부 판정 (예: "충족", "부족")
+ * @param usedSubjects 해당 요건 계산에 사용된 과목명 목록
  */
 @Serializable
 data class GraduationRequirementItem(
@@ -19,7 +20,8 @@ data class GraduationRequirementItem(
     val standardValue: String = "",
     val calculatedValue: String = "",
     val difference: String = "",
-    val result: String = ""
+    val result: String = "",
+    val usedSubjects: List<String> = emptyList()
 )
 
 /**

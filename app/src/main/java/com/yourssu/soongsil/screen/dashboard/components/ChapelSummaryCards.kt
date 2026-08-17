@@ -31,6 +31,7 @@ fun ChapelSeatCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardShape = RoundedCornerShape(20.dp)
     val zone = seat
         .substringBefore("-")
         .trim()
@@ -52,7 +53,8 @@ fun ChapelSeatCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
+            .clip(cardShape)
+            .background(MaterialTheme.colorScheme.primary, cardShape)
             .clickable(onClick = onClick)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -115,10 +117,12 @@ fun ChapelAttendanceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardShape = RoundedCornerShape(18.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+            .clip(cardShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, cardShape)
             .clickable(onClick = onClick)
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)

@@ -6,6 +6,7 @@ import com.yourssu.data.dashboard.DashboardData
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -66,12 +67,7 @@ class DashboardViewModel @Inject constructor(
                     _uiState.update { it.copy(dashboardData = cachedData) }
                 }
 
-            if (lmsAuthRepository.hasActiveSession()) {
-                refreshDashboardData(credentials.studentId)
-                return@launch
-            }
-
-            lmsAuthRepository.login(credentials.studentId, credentials.password)
+            lmsAuthRepository.ensureActiveSession()
                 .onSuccess {
                     refreshDashboardData(credentials.studentId)
                 }
@@ -79,17 +75,17 @@ class DashboardViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            loginRequired = true,
+                            loginRequired = throwable.isLmsLoginRequired(),
                             error = throwable.message,
-                            refreshStatus = DashboardRefreshStatus.HIDDEN
+                            refreshStatus = if (throwable.isLmsLoginRequired()) {
+                                DashboardRefreshStatus.HIDDEN
+                            } else {
+                                DashboardRefreshStatus.ERROR
+                            }
                         )
                     }
                 }
         }
-    }
-
-    fun retryRefresh() {
-        requestRefresh(isPullToRefresh = false)
     }
 
     fun pullToRefresh() {
@@ -114,13 +110,67 @@ class DashboardViewModel @Inject constructor(
                 isLoading = true,
                 error = null,
                 refreshStatus = DashboardRefreshStatus.LOADING,
-                refreshStep = DashboardRefreshStep.STUDENT_INFO
+                refreshStep = DashboardRefreshStep.CONNECTING
             )
         }
 
-        val refreshResult = dashboardRepository.refreshData(studentId) { step ->
-            _uiState.update { it.copy(refreshStep = step) }
+        lmsAuthRepository.ensureActiveSession()
+            .onFailure { throwable ->
+                val loginRequired = throwable.isLmsLoginRequired()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        loginRequired = loginRequired,
+                        error = throwable.message,
+                        refreshStatus = if (loginRequired) {
+                            DashboardRefreshStatus.HIDDEN
+                        } else {
+                            DashboardRefreshStatus.ERROR
+                        },
+                        isPullRefreshing = false
+                    )
+                }
+                return
+            }
+
+        _uiState.update {
+            it.copy(refreshStep = DashboardRefreshStep.DATA_LOADING)
         }
+
+        val refreshResult = dashboardRepository.refreshData(
+            studentId = studentId,
+            onRequestCompleted = { completedCount ->
+                _uiState.update {
+                    it.copy(
+                        refreshStep = DashboardRefreshStep.fromCompletedCount(completedCount)
+                    )
+                }
+            },
+            onGradesLoaded = { gradeOverview ->
+                _uiState.update {
+                    it.copy(
+                        dashboardData = (it.dashboardData ?: DashboardData()).copy(
+                            studentId = studentId,
+                            overallGpa = gradeOverview.overallGpa,
+                            earnedCredits = gradeOverview.earnedCredits,
+                            semesterRank = gradeOverview.semesterRank,
+                            totalRank = gradeOverview.totalRank,
+                            semesterGrades = gradeOverview.semesterGrades
+                        )
+                    )
+                }
+            },
+            onChapelLoaded = { chapel ->
+                _uiState.update {
+                    it.copy(
+                        dashboardData = (it.dashboardData ?: DashboardData()).copy(
+                            studentId = studentId,
+                            chapel = chapel
+                        )
+                    )
+                }
+            }
+        )
         refreshResult
             .onSuccess { dashboardData ->
                 _uiState.update {

@@ -35,7 +35,8 @@ class GraduationRepository @Inject constructor() {
         standardValue = standardValue,
         calculatedValue = calculatedValue,
         difference = difference,
-        result = result
+        result = result,
+        usedSubjects = usedSubjects
     )
 
     // 요건 중 하나라도 부족/미필이면 전체 판정은 "불가능"입니다.

@@ -3,8 +3,10 @@ package com.yourssu.soongsil.screen.scholarship
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.scholarship.TuitionScholarshipUiState
+import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.ScholarshipRepository
 import com.yourssu.soongsil.data.TuitionRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -18,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ScholarshipViewModel @Inject constructor(
     private val tuitionRepository: TuitionRepository,
-    private val scholarshipRepository: ScholarshipRepository
+    private val scholarshipRepository: ScholarshipRepository,
+    private val lmsAuthRepository: LmsAuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TuitionScholarshipUiState())
     val uiState: StateFlow<TuitionScholarshipUiState> = _uiState.asStateFlow()
@@ -35,6 +38,18 @@ class ScholarshipViewModel @Inject constructor(
             )
         }
         viewModelScope.launch(Dispatchers.IO) {
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isTuitionLoading = false,
+                            tuitionErrorMessage = throwable.message,
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
+                    }
+                    return@launch
+                }
+
             val refreshResult = async { tuitionRepository.getTuitionHistories() }
             val cachedHistories = tuitionRepository.getCachedTuitionHistories()
 
@@ -80,6 +95,18 @@ class ScholarshipViewModel @Inject constructor(
             )
         }
         viewModelScope.launch(Dispatchers.IO) {
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isScholarshipLoading = false,
+                            scholarshipErrorMessage = throwable.message,
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
+                    }
+                    return@launch
+                }
+
             val refreshResult = async { scholarshipRepository.getScholarshipHistories() }
             val cachedHistories = scholarshipRepository.getCachedScholarshipHistories()
 
@@ -116,5 +143,9 @@ class ScholarshipViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
     }
 }

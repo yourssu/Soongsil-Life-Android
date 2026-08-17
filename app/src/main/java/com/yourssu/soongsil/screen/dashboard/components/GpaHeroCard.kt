@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,10 +72,12 @@ fun GpaHeroCard(
             )
         }
 
+        val detailButtonShape = RoundedCornerShape(9999.dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.inverseOnSurface, RoundedCornerShape(9999.dp))
+                .clip(detailButtonShape)
+                .background(MaterialTheme.colorScheme.inverseOnSurface, detailButtonShape)
                 .clickable { onDetailClick() }
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.Center,

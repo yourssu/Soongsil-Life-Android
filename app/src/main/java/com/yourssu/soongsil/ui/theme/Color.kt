@@ -14,6 +14,8 @@ object SoongsilPalette {
     val Gray50 = Color(0xFFF8FAFC)
     val Gray100 = Color(0xFFF2F4F6)
     val Gray150 = Color(0xFFF4F4F5)
+    val Gray175 = Color(0xFFEAECEF)
+    val Gray190 = Color(0xFFEEEEEE)
     val Gray200 = Color(0xFFD9D9D9)
     val Gray500 = Color(0xFFA1A1A1)
     val Gray800 = Color(0xFF525252)
@@ -35,7 +37,11 @@ object SoongsilPalette {
     val Slate600 = Color(0xFF4B5563)
 
     val Green50 = Color(0xFFECFDF5)
+    val Green400 = Color(0xFF34D399)
     val Green500 = Color(0xFF059669)
+    val Red50 = Color(0xFFFEF2F2)
+    val Red400 = Color(0xFFF87171)
+    val Red600 = Color(0xFFDC2626)
     val Orange50 = Color(0xFFFFF7ED)
     val Orange500 = Color(0xFFD97706)
 

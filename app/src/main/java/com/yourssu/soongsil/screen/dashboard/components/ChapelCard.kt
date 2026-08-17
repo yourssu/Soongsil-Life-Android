@@ -34,11 +34,13 @@ fun ChapelCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardShape = RoundedCornerShape(12.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(12.dp))
+            .clip(cardShape)
+            .background(Color.White, cardShape)
+            .border(1.dp, Color(0xFFF1F5F9), cardShape)
             .clickable { onClick() }
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)

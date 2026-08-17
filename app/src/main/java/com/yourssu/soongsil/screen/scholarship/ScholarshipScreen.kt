@@ -17,10 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,11 +35,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.scholarship.ScholarshipHistory
 import com.yourssu.data.scholarship.TuitionHistory
 import com.yourssu.soongsil.R
+import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 enum class TuitionScholarshipTab(val label: String) {
@@ -62,6 +64,7 @@ fun ScholarshipScreen(
     onBackClick: () -> Unit = {}
 ) {
     var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
+    val bottomBarPadding = LocalMainBottomBarPadding.current
 
     Column(
         modifier = modifier
@@ -90,6 +93,7 @@ fun ScholarshipScreen(
                 )
                 else -> TuitionHistoryList(
                     tuitionHistories = tuitionHistories,
+                    bottomPadding = bottomBarPadding,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -106,6 +110,7 @@ fun ScholarshipScreen(
                 )
                 else -> ScholarshipHistoryList(
                     scholarshipHistories = scholarshipHistories,
+                    bottomPadding = bottomBarPadding,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -193,6 +198,7 @@ private fun ScholarshipTabs(
 @Composable
 private fun ScholarshipHistoryList(
     scholarshipHistories: List<ScholarshipHistory>,
+    bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -201,7 +207,8 @@ private fun ScholarshipHistoryList(
             start = 20.dp,
             top = 11.dp,
             end = 20.dp,
-            bottom = 20.dp
+            // 목록의 마지막 항목이 바텀바에 가려지지 않도록 여백을 확보합니다.
+            bottom = 20.dp + bottomPadding
         ),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
@@ -315,6 +322,7 @@ private fun String.toAmountDetail(label: String): String? {
 @Composable
 private fun TuitionHistoryList(
     tuitionHistories: List<TuitionHistory>,
+    bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -323,7 +331,8 @@ private fun TuitionHistoryList(
             start = 20.dp,
             top = 11.dp,
             end = 20.dp,
-            bottom = 20.dp
+            // 목록의 마지막 항목이 바텀바에 가려지지 않도록 여백을 확보합니다.
+            bottom = 20.dp + bottomPadding
         ),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {

@@ -10,11 +10,11 @@ import com.yourssu.data.coursecatalog.CourseCatalogFilterOptionData
 import com.yourssu.data.coursecatalog.CourseCatalogSelectedFilterData
 import com.yourssu.data.coursecatalog.CourseCatalogSemester
 import com.yourssu.soongsil.data.CourseCatalogRepository
+import com.yourssu.soongsil.data.LmsAuthRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
 import com.yourssu.soongsil.screen.plan.PlanPdfData
 import com.yourssu.soongsil.screen.plan.PlanPdfUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.LocalDate
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import javax.inject.Inject
 
 data class CourseCatalogUiState(
     val data: CourseCatalogData? = null,
@@ -42,12 +44,14 @@ data class CourseCatalogUiState(
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val optionsErrorMessage: String? = null,
-    val planPdfState: PlanPdfUiState = PlanPdfUiState()
+    val planPdfState: PlanPdfUiState = PlanPdfUiState(),
+    val loginRequired: Boolean = false
 )
 
 @HiltViewModel
 class CourseCatalogViewModel @Inject constructor(
-    private val courseCatalogRepository: CourseCatalogRepository
+    private val courseCatalogRepository: CourseCatalogRepository,
+    private val lmsAuthRepository: LmsAuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CourseCatalogUiState())
     val uiState: StateFlow<CourseCatalogUiState> = _uiState.asStateFlow()
@@ -144,6 +148,10 @@ class CourseCatalogViewModel @Inject constructor(
         loadSearchOptions(filterKeys = _uiState.value.filters.selectedKeys())
     }
 
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
+    }
+
     fun search() {
         if (searchJob?.isActive == true) return
 
@@ -196,6 +204,17 @@ class CourseCatalogViewModel @Inject constructor(
             )
         }
         planJob = viewModelScope.launch {
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            planPdfState = PlanPdfUiState(errorMessage = throwable.message),
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
+                    }
+                    return@launch
+                }
+
             courseCatalogRepository.loadPlan(course)
                 .onSuccess { bytes ->
                     if (!isActive) return@onSuccess
@@ -269,6 +288,18 @@ class CourseCatalogViewModel @Inject constructor(
             it.copy(isOptionsLoading = true, optionsErrorMessage = null)
         }
         optionsJob = viewModelScope.launch {
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isOptionsLoading = false,
+                            optionsErrorMessage = throwable.message,
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
+                    }
+                    return@launch
+                }
+
             courseCatalogRepository.getSearchOptions(
                 year = year,
                 semester = semester,
@@ -306,6 +337,19 @@ class CourseCatalogViewModel @Inject constructor(
         selectedFilters: List<CourseCatalogSelectedFilterData>,
         keyword: String
     ) {
+        lmsAuthRepository.ensureActiveSession()
+            .onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isSearching = false,
+                        isRefreshing = false,
+                        errorMessage = throwable.message,
+                        loginRequired = throwable.isLmsLoginRequired()
+                    )
+                }
+                return
+            }
+
         courseCatalogRepository.search(
             year = year,
             semester = semester,

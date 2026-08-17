@@ -27,4 +27,9 @@ class OnBoardingRepository @Inject constructor(
             preferences[termsAgreedKey] = true
         }
     }
+
+    // 로그아웃 시 다음 계정이 약관 동의 절차를 다시 진행하도록 초기화합니다.
+    suspend fun clearCachedData(): Result<Unit> = runCatching {
+        context.onBoardingDataStore.edit { it.clear() }
+    }
 }

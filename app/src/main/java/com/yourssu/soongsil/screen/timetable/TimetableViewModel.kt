@@ -3,9 +3,13 @@
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.timetable.TimetableCourse
+import com.yourssu.data.timetable.TimetableData
 import com.yourssu.data.timetable.TimetableSemester
 import com.yourssu.data.timetable.TimetableTerm
 import com.yourssu.soongsil.data.TimetableRepository
+import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.timetableTermOf
+import com.yourssu.soongsil.data.withAdditionalTimetableTerm
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,13 +31,13 @@ class TimetableViewModel @Inject constructor(
     private var timetableRequestId = 0L
 
     init {
-        loadAvailableTerms()
+        loadInitialTimetable()
     }
 
     fun retry() {
         val state = _uiState.value
         if (state.termLoadError != null || state.availableTerms.isEmpty()) {
-            loadAvailableTerms()
+            loadInitialTimetable()
             return
         }
 
@@ -56,80 +60,128 @@ class TimetableViewModel @Inject constructor(
         _uiState.update { it.copy(selectedCourse = null) }
     }
 
-    private fun loadAvailableTerms() {
+    fun onLoginNavigationHandled() {
+        _uiState.update { it.copy(loginRequired = false) }
+    }
+
+    private fun loadInitialTimetable() {
         val currentRequestId = ++termRequestId
 
         _uiState.update {
             it.copy(
                 isLoadingTerms = true,
+                isLoading = true,
                 termLoadError = null,
                 errorMessage = null,
                 selectedCourse = null
             )
         }
 
-        timetableRepository.getAvailableTerms { result ->
-            viewModelScope.launch {
-                if (currentRequestId != termRequestId) return@launch
-
-                result
-                    .onSuccess { availableTerms ->
-                        val selectedTerm = availableTerms.firstOrNull {
-                            it.year == _uiState.value.selectedYear &&
-                                it.semester == _uiState.value.selectedSemester
-                        } ?: availableTerms.firstOrNull()
-
-                        if (selectedTerm == null) {
-                            _uiState.update {
-                                it.copy(
-                                    isLoadingTerms = false,
-                                    isLoading = false,
-                                    availableTerms = emptyList(),
-                                    selectedYear = "",
-                                    selectedSemester = TimetableSemester.FIRST,
-                                    year = "",
-                                    semester = "",
-                                    courses = emptyList(),
-                                    errorMessage = null,
-                                    termLoadError = null
-                                )
-                            }
-                            return@onSuccess
-                        }
-
-                        _uiState.update {
-                            it.copy(
-                                isLoadingTerms = false,
-                                isLoading = true,
-                                availableTerms = availableTerms,
-                                selectedYear = selectedTerm.year,
-                                selectedSemester = selectedTerm.semester,
-                                year = selectedTerm.year,
-                                semester = selectedTerm.semester.label,
-                                errorMessage = null,
-                                termLoadError = null
-                            )
-                        }
-
-                        loadTimetable(term = selectedTerm, forceReload = true)
-                    }
-                    .onFailure { throwable ->
-                        _uiState.update {
-                            it.copy(
-                                isLoadingTerms = false,
-                                isLoading = false,
-                                availableTerms = emptyList(),
-                                selectedYear = "",
-                                selectedSemester = TimetableSemester.FIRST,
-                                year = "",
-                                semester = "",
-                                courses = emptyList(),
-                                errorMessage = null,
-                                termLoadError = throwable.message ?: "수강 학기 정보를 불러오지 못했습니다."
-                            )
-                        }
-                    }
+        viewModelScope.launch(Dispatchers.IO) {
+            val defaultTimetableResult = runCatching {
+                timetableRepository.getDefaultTimetable()
             }
+
+            timetableRepository.getAvailableTerms { availableTermsResult ->
+                viewModelScope.launch {
+                    if (currentRequestId != termRequestId) return@launch
+                    applyInitialTimetableResult(
+                        defaultTimetableResult = defaultTimetableResult,
+                        availableTermsResult = availableTermsResult
+                    )
+                }
+            }
+        }
+    }
+
+    private fun applyInitialTimetableResult(
+        defaultTimetableResult: Result<TimetableData>,
+        availableTermsResult: Result<List<TimetableTerm>>
+    ) {
+        val defaultTimetable = defaultTimetableResult.getOrNull()
+        val defaultTerm = defaultTimetable?.let {
+            timetableTermOf(year = it.year, semester = it.semester)
+        }
+
+        availableTermsResult
+            .onSuccess { termsFromLms ->
+                val availableTerms = termsFromLms.withAdditionalTimetableTerm(defaultTerm)
+                val selectedTerm = defaultTerm ?: availableTerms.firstOrNull()
+
+                if (selectedTerm == null) {
+                    showInitialLoadFailure(defaultTimetableResult.exceptionOrNull())
+                    return@onSuccess
+                }
+
+                if (defaultTimetable != null && defaultTerm != null) {
+                    // 기본 시간표 응답을 초기 화면에 그대로 사용하고 getTerms가 덮어쓰지 않도록 합니다.
+                    showDefaultTimetable(
+                        timetable = defaultTimetable,
+                        term = defaultTerm,
+                        availableTerms = availableTerms
+                    )
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingTerms = false,
+                            availableTerms = availableTerms,
+                            selectedYear = selectedTerm.year,
+                            selectedSemester = selectedTerm.semester,
+                            termLoadError = null
+                        )
+                    }
+                    loadTimetable(term = selectedTerm, forceReload = true)
+                }
+            }
+            .onFailure { termsFailure ->
+                if (defaultTimetable != null && defaultTerm != null) {
+                    showDefaultTimetable(
+                        timetable = defaultTimetable,
+                        term = defaultTerm,
+                        availableTerms = listOf(defaultTerm)
+                    )
+                } else {
+                    showInitialLoadFailure(termsFailure)
+                }
+            }
+    }
+
+    private fun showDefaultTimetable(
+        timetable: TimetableData,
+        term: TimetableTerm,
+        availableTerms: List<TimetableTerm>
+    ) {
+        _uiState.update {
+            it.copy(
+                isLoadingTerms = false,
+                isLoading = false,
+                availableTerms = availableTerms,
+                selectedYear = term.year,
+                selectedSemester = term.semester,
+                year = timetable.year.ifBlank { term.year },
+                semester = timetable.semester.ifBlank { term.semester.label },
+                courses = timetable.courses,
+                errorMessage = null,
+                termLoadError = null
+            )
+        }
+    }
+
+    private fun showInitialLoadFailure(throwable: Throwable?) {
+        _uiState.update {
+            it.copy(
+                isLoadingTerms = false,
+                isLoading = false,
+                availableTerms = emptyList(),
+                selectedYear = "",
+                selectedSemester = TimetableSemester.FIRST,
+                year = "",
+                semester = "",
+                courses = emptyList(),
+                errorMessage = null,
+                termLoadError = throwable?.message ?: "시간표를 불러오지 못했습니다.",
+                loginRequired = throwable?.isLmsLoginRequired() == true
+            )
         }
     }
 
@@ -181,7 +233,8 @@ class TimetableViewModel @Inject constructor(
                             year = term.year,
                             semester = term.semester.label,
                             courses = emptyList(),
-                            errorMessage = throwable.message ?: "시간표를 불러오지 못했습니다."
+                            errorMessage = throwable.message ?: "시간표를 불러오지 못했습니다.",
+                            loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
                 }
@@ -209,7 +262,8 @@ class TimetableViewModel @Inject constructor(
         val courses: List<TimetableCourse> = emptyList(),
         val selectedCourse: TimetableCourse? = null,
         val errorMessage: String? = null,
-        val termLoadError: String? = null
+        val termLoadError: String? = null,
+        val loginRequired: Boolean = false
     )
 }
 

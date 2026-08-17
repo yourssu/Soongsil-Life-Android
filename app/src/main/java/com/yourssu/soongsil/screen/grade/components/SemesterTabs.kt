@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,11 +42,13 @@ fun SemesterTabs(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         itemsIndexed(tabs) { index, tab ->
+            val tabShape = RoundedCornerShape(20.dp)
             Box(
                 modifier = Modifier
+                    .clip(tabShape)
                     .background(
                         if (tab.isActive) activeTabColor else inactiveTabColor,
-                        RoundedCornerShape(20.dp)
+                        tabShape
                     )
                     .clickable {
                         onTabClick(index)

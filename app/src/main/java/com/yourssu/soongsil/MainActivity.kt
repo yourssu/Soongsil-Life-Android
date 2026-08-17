@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,6 +31,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -49,23 +54,26 @@ import com.yourssu.data.nav.PushNotifications
 import com.yourssu.data.nav.Scholarship
 import com.yourssu.data.nav.Timetable
 import com.yourssu.soongsil.screen.chapel.ChapelScreen
+import com.yourssu.soongsil.screen.chapel.ChapelViewModel
 import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogScreen
 import com.yourssu.soongsil.screen.coursecatalog.CourseCatalogViewModel
 import com.yourssu.soongsil.screen.dashboard.DashboardScreen
 import com.yourssu.soongsil.screen.dashboard.DashboardViewModel
 import com.yourssu.soongsil.screen.grade.GradeDetailScreen
+import com.yourssu.soongsil.screen.grade.GradeViewModel
 import com.yourssu.soongsil.screen.graduation.GraduationScreen
+import com.yourssu.soongsil.screen.graduation.GraduationViewModel
 import com.yourssu.soongsil.screen.keep.KeepScreen
 import com.yourssu.soongsil.screen.keep.KeepViewModel
 import com.yourssu.soongsil.screen.login.LoginScreen
 import com.yourssu.soongsil.screen.login.LoginViewModel
 import com.yourssu.soongsil.screen.mypage.MyPageScreen
 import com.yourssu.soongsil.screen.mypage.MyPageViewModel
+import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
+import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.plan.PlanErrorDialog
 import com.yourssu.soongsil.screen.plan.PlanLoadingDialog
 import com.yourssu.soongsil.screen.plan.PlanPdfScreen
-import com.yourssu.soongsil.screen.onboard.OnBoardingCompleteScreen
-import com.yourssu.soongsil.screen.onboard.OnBoardingScreen
 import com.yourssu.soongsil.screen.pushnotifications.PushNotificationsScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipScreen
 import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
@@ -76,8 +84,7 @@ import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.runtime.mutableStateOf
-import com.yourssu.data.dashboard.DashboardChapelData
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,25 +93,42 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             val navController = rememberNavController()
+            var isDashboardGradeRevealed by remember { mutableStateOf(false) }
+
+            // 앱이 백그라운드로 내려가면 다음 진입부터 성적을 다시 가립니다.
+            DisposableEffect(Unit) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP) {
+                        isDashboardGradeRevealed = false
+                    }
+                }
+                this@MainActivity.lifecycle.addObserver(observer)
+                onDispose { this@MainActivity.lifecycle.removeObserver(observer) }
+            }
+
             SoongsilLifeAndroidTheme(
                 dynamicColor = false
             ) {
-                val currentRoute = navController
+                val currentDestination = navController
                     .currentBackStackEntryAsState()
                     .value
                     ?.destination
-                    ?.route
-                val showBottomBar = currentRoute !in setOf(
-                    Login::class.qualifiedName,
-                    OnBoardingTerms::class.qualifiedName,
-                    OnBoardingComplete::class.qualifiedName
-                )
+
+                // 난독화된 클래스 이름과 무관하게 목적지 타입으로 하단 메뉴 노출 여부를 판단합니다.
+                val showBottomBar = when {
+                    currentDestination == null -> false
+                    currentDestination.hasRoute(Login::class) -> false
+                    currentDestination.hasRoute(OnBoardingTerms::class) -> false
+                    currentDestination.hasRoute(OnBoardingComplete::class) -> false
+                    else -> true
+                }
+
+                // 현재 목적지 타입에 맞는 하단 메뉴를 선택합니다.
                 val selectedTab = when {
-                    currentRoute == Timetable::class.qualifiedName -> MainTab.TIMETABLE
-                    currentRoute == PushNotifications::class.qualifiedName -> MainTab.NOTIFICATIONS
-                    currentRoute == MyPage::class.qualifiedName ||
-                        currentRoute == Keep::class.qualifiedName ||
-                        currentRoute == CourseCatalog::class.qualifiedName -> MainTab.MY_PAGE
+                    currentDestination?.hasRoute(Timetable::class) == true -> MainTab.TIMETABLE
+                    currentDestination?.hasRoute(MyPage::class) == true ||
+                        currentDestination?.hasRoute(Keep::class) == true ||
+                        currentDestination?.hasRoute(CourseCatalog::class) == true -> MainTab.MY_PAGE
                     else -> MainTab.HOME
                 }
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
@@ -144,7 +168,7 @@ class MainActivity : ComponentActivity() {
 
                             LaunchedEffect(uiState.isLoginSuccessful) {
                                 if (uiState.isLoginSuccessful) {
-                                    val destination = if (uiState.isOnboardingRequired) {
+                                    val destination = if (uiState.isOnboardingRequired || BuildConfig.DEBUG) {
                                         OnBoardingTerms
                                     } else {
                                         Dashboard
@@ -199,39 +223,67 @@ class MainActivity : ComponentActivity() {
                             }
 
                             DashboardScreen(
-                                greetingName = dashboardData?.studentName.orEmpty(),
-                                profileName = dashboardData?.studentName.orEmpty(),
-                                department = dashboardData?.department.orEmpty(),
-                                studentId = dashboardData?.studentId.orEmpty(),
                                 gpa = dashboardData?.overallGpa.orEmpty(),
+                                earnedCredits = dashboardData?.earnedCredits.orEmpty(),
+                                semesterRank = dashboardData?.semesterRank.orEmpty(),
+                                totalRank = dashboardData?.totalRank.orEmpty(),
                                 semesterGrades = dashboardData?.semesterGrades.orEmpty(),
                                 chapelSeat = dashboardData?.chapel?.seat.orEmpty(),
-                                chapelSeatDescription = dashboardData?.chapel?.seatDescription.orEmpty(),
-                                chapelRemaining = dashboardData?.chapel?.remaining ?: 0,
                                 chapelRequired = dashboardData?.chapel?.required ?: 0,
                                 chapelAttended = dashboardData?.chapel?.attended ?: 0,
-                                chapelLate = dashboardData?.chapel?.late ?: 0,
-                                chapelAbsent = dashboardData?.chapel?.absent ?: 0,
-                                chapelProgress = dashboardData?.chapel?.progress ?: 0f,
+                                isGradeBlurred = !isDashboardGradeRevealed,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
-                                refreshErrorMessage = uiState.error,
                                 isPullRefreshing = uiState.isPullRefreshing,
                                 onPullToRefresh = viewModel::pullToRefresh,
-                                onRefreshRetryClick = viewModel::retryRefresh,
+                                onNotificationClick = {
+                                    navController.navigate(PushNotifications) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onGradeBlurClick = { isDashboardGradeRevealed = true },
                                 onGradeDetailClick = { navController.navigate(Grade) },
-                                onChartDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },
                                 onScholarshipClick = { navController.navigate(Scholarship) }
                             )
                         }
                         composable<Grade> {
-                            GradeDetailScreen(onBackClick = { navController.popBackStack() })
+                            val viewModel: GradeViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
+                            GradeDetailScreen(
+                                onBackClick = { navController.popBackStack() },
+                                viewModel = viewModel
+                            )
                         }
                         composable<Graduate> {
+                            val viewModel: GraduationViewModel = hiltViewModel()
+                            val uiState by viewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             GraduationScreen(
-                                onBackClick = { navController.popBackStack() }
+                                onBackClick = { navController.popBackStack() },
+                                viewModel = viewModel
                             )
                         }
                         composable<MyPage> {
@@ -265,7 +317,7 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(uiState.loginRequired) {
                                 if (uiState.loginRequired) {
                                     navController.navigate(Login) {
-                                        popUpTo<Keep> { inclusive = true }
+                                        popUpTo<Dashboard> { inclusive = true }
                                         launchSingleTop = true
                                     }
                                     viewModel.onLoginNavigationHandled()
@@ -309,6 +361,16 @@ class MainActivity : ComponentActivity() {
                             val planState = uiState.planPdfState
                             val pdf = planState.pdf
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             if (pdf != null) {
                                 PlanPdfScreen(
                                     title = pdf.title,
@@ -348,6 +410,16 @@ class MainActivity : ComponentActivity() {
                             val viewModel: TimetableViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             TimetableScreen(
                                 uiState = uiState,
                                 onRetry = viewModel::retry,
@@ -362,6 +434,16 @@ class MainActivity : ComponentActivity() {
                             val viewModel: ScholarshipViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
 
+                            LaunchedEffect(uiState.loginRequired) {
+                                if (uiState.loginRequired) {
+                                    navController.navigate(Login) {
+                                        popUpTo<Dashboard> { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                    viewModel.onLoginNavigationHandled()
+                                }
+                            }
+
                             ScholarshipScreen(
                                 tuitionHistories = uiState.tuitionHistories,
                                 isTuitionLoading = uiState.isTuitionLoading,
@@ -375,7 +457,20 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                             composable<Chapel> {
-                                ChapelScreen()
+                                val viewModel: ChapelViewModel = hiltViewModel()
+                                val uiState by viewModel.uiState.collectAsState()
+
+                                LaunchedEffect(uiState.loginRequired) {
+                                    if (uiState.loginRequired) {
+                                        navController.navigate(Login) {
+                                            popUpTo<Dashboard> { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                        viewModel.onLoginNavigationHandled()
+                                    }
+                                }
+
+                                ChapelScreen(viewModel = viewModel)
                             }
                         }
                     }
@@ -402,7 +497,8 @@ class MainActivity : ComponentActivity() {
 
 private fun NavHostController.navigateToMainTab(tab: MainTab) {
     if (tab == MainTab.HOME) {
-        if (currentDestination?.route == Dashboard::class.qualifiedName) return
+        // 난독화 여부와 무관하게 현재 목적지가 홈인지 타입으로 확인합니다.
+        if (currentDestination?.hasRoute(Dashboard::class) == true) return
         if (popBackStack<Dashboard>(inclusive = false)) return
 
         navigate(Dashboard) {
@@ -421,7 +517,6 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
     when (tab) {
         MainTab.HOME -> Unit
         MainTab.TIMETABLE -> navigate(Timetable, options)
-        MainTab.NOTIFICATIONS -> navigate(PushNotifications, options)
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }

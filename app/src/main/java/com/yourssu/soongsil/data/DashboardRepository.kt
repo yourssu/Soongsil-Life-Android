@@ -9,19 +9,21 @@ import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.data.dashboard.DashboardChapelTerm
 import com.yourssu.data.dashboard.DashboardChapelWeeklyAttendance
 import com.yourssu.data.dashboard.DashboardData
-import com.yourssu.data.dashboard.DashboardRefreshStep
+import com.yourssu.data.dashboard.DashboardGradeOverview
 import com.yourssu.data.dashboard.DashboardSemesterGrade
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.data.Lms.ChapelInformation
-import io.github.chlwhdtn03.data.Lms.Info
 import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.SemesterGradeSummaryTable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
-import java.util.Locale
 import java.util.Calendar
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -95,56 +97,73 @@ class DashboardRepository @Inject constructor(
 
     suspend fun refreshData(
         studentId: String,
-        onStepChanged: (DashboardRefreshStep) -> Unit = {}
+        onRequestCompleted: (Int) -> Unit = {},
+        onGradesLoaded: (DashboardGradeOverview) -> Unit = {},
+        onChapelLoaded: (DashboardChapelData) -> Unit = {}
     ): Result<DashboardData> = runCatching {
-        onStepChanged(DashboardRefreshStep.STUDENT_INFO)
-        val loginInfo = runCatching { getLoginInfo() }
-            .onSuccess { Log.d(TAG, "사용자 정보 로드 성공: 1건") }
-            .onFailure { Log.e(TAG, "사용자 정보 로드 실패", it) }
-            .getOrThrow()
+        supervisorScope {
+            val completedCount = AtomicInteger(0)
 
-        onStepChanged(DashboardRefreshStep.GRADES)
-        val grades = runCatching { LmsApi.getSemesterGradeSummaryTable() }
-            .onSuccess { Log.d(TAG, "학기별 성적 로드 성공: ${it.items.size}건") }
-            .onFailure { Log.e(TAG, "학기별 성적 로드 실패", it) }
-            .getOrThrow()
-
-        onStepChanged(DashboardRefreshStep.CHAPEL)
-        val chapel = runCatching { LmsApi.getChapelTable() }
-            .onSuccess {
-                Log.d(
-                    TAG,
-                    "채플 정보 로드 성공 : 좌석 ${it.seatStatusTable.items.size}건, " +
-                            "출석 ${it.attendanceTable.items.size}건"
-                )
+            // 로그인 이후 독립적인 세 요청을 먼저 모두 시작해 응답 대기 시간을 겹칩니다.
+            val termsRequest = async {
+                runCatching { getTerms() }
+                    .onSuccess { Log.d(TAG, "학기 정보 로드 성공") }
+                    .onFailure { Log.e(TAG, "학기 정보 로드 실패", it) }
+                    .also { onRequestCompleted(completedCount.incrementAndGet()) }
             }
-            .onFailure { Log.e(TAG, "채플 정보 로드 실패", it) }
-            .getOrThrow()
-        val dashboardData = DashboardData(
-            studentName = loginInfo.user_name,
-            department = loginInfo.dept_name,
-            studentId = studentId,
-            overallGpa = grades.calculateOverallGpa(),
-            semesterGrades = grades.toDashboardGrades(),
-            chapel = chapel.toAvailableChapelData()
-        )
+            val gradesRequest = async {
+                runCatching { LmsApi.getSemesterGradeSummaryTable() }
+                    .onSuccess {
+                        Log.d(TAG, "학기별 성적 로드 성공: ${it.items.size}건")
+                        onGradesLoaded(it.toDashboardGradeOverview())
+                    }
+                    .onFailure { Log.e(TAG, "학기별 성적 로드 실패", it) }
+                    .also { onRequestCompleted(completedCount.incrementAndGet()) }
+            }
+            val chapelRequest = async {
+                runCatching { LmsApi.getChapelTable().toAvailableChapelData() }
+                    .onSuccess {
+                        Log.d(TAG, "채플 정보 로드 성공")
+                        onChapelLoaded(it)
+                    }
+                    .onFailure { Log.e(TAG, "채플 정보 로드 실패", it) }
+                    .also { onRequestCompleted(completedCount.incrementAndGet()) }
+            }
 
-        context.dashboardDataStore.edit { preferences ->
-            preferences[dashboardDataKey] = json.encodeToString(dashboardData)
+            // 한 요청이 실패해도 이미 실행 중인 나머지 요청의 응답까지 모두 받습니다.
+            val termsResult = termsRequest.await()
+            val gradesResult = gradesRequest.await()
+            val chapelResult = chapelRequest.await()
+
+            termsResult.getOrThrow()
+            val grades = gradesResult.getOrThrow()
+            val chapel = chapelResult.getOrThrow()
+
+            val dashboardData = DashboardData(
+                studentId = studentId,
+                overallGpa = grades.calculateOverallGpa(),
+                earnedCredits = grades.calculateEarnedCredits(),
+                semesterRank = grades.latestSemesterRank(),
+                totalRank = grades.latestTotalRank(),
+                semesterGrades = grades.toDashboardGrades(),
+                chapel = chapel
+            )
+            context.dashboardDataStore.edit { preferences ->
+                preferences[dashboardDataKey] = json.encodeToString(dashboardData)
+            }
+            dashboardData
         }
-        dashboardData
     }
 
-    private suspend fun getLoginInfo(): Info = suspendCancellableCoroutine { continuation ->
-        LmsApi.getLoginInfo { result ->
-            if (!continuation.isActive) return@getLoginInfo
+    private suspend fun getTerms() = suspendCancellableCoroutine<Unit> { continuation ->
+        LmsApi.getTerms { result ->
+            if (!continuation.isActive) return@getTerms
 
-            val info = result.info
-            if (result.success && info != null) {
-                continuation.resume(info)
+            if (result.success) {
+                continuation.resume(Unit)
             } else {
                 continuation.resumeWithException(
-                    IllegalStateException(result.errorMessage ?: "사용자 정보를 불러오지 못했습니다.")
+                    IllegalStateException(result.errorMessage ?: "학기 정보를 불러오지 못했습니다.")
                 )
             }
         }
@@ -161,6 +180,29 @@ class DashboardRepository @Inject constructor(
 
         return String.format(Locale.US, "%.2f", gradePointSum / gradedCredits)
     }
+
+    private fun SemesterGradeSummaryTable.toDashboardGradeOverview() = DashboardGradeOverview(
+        overallGpa = calculateOverallGpa(),
+        earnedCredits = calculateEarnedCredits(),
+        semesterRank = latestSemesterRank(),
+        totalRank = latestTotalRank(),
+        semesterGrades = toDashboardGrades()
+    )
+
+    private fun SemesterGradeSummaryTable.calculateEarnedCredits(): String {
+        val credits = items.sumOf { it.earnedCredits.toDoubleOrNull() ?: 0.0 }
+        return if (credits % 1.0 == 0.0) credits.toInt().toString() else credits.toString()
+    }
+
+    private fun SemesterGradeSummaryTable.latestSemesterRank(): String =
+        items.maxWithOrNull(
+            compareBy({ it.year }, { it.semester?.ordinal ?: -1 })
+        )?.semesterRank.orEmpty()
+
+    private fun SemesterGradeSummaryTable.latestTotalRank(): String =
+        items.maxWithOrNull(
+            compareBy({ it.year }, { it.semester?.ordinal ?: -1 })
+        )?.totalRank.orEmpty()
 
     private fun SemesterGradeSummaryTable.toDashboardGrades(): List<DashboardSemesterGrade> =
         items.sortedWith(compareBy({ it.year }, { it.semester?.ordinal }))
@@ -264,6 +306,6 @@ class DashboardRepository @Inject constructor(
 
     private companion object {
         const val TAG = "DashboardRepository"
-        const val MAX_VISIBLE_SEMESTERS = 5
+        const val MAX_VISIBLE_SEMESTERS = 8
     }
 }

@@ -2,6 +2,7 @@ package com.yourssu.soongsil.screen.login
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -57,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
@@ -154,11 +157,12 @@ private fun LoginScreenContent(
                 .fillMaxWidth()
                 .padding(start = 28.dp, top = 56.dp, end = 28.dp)
         ) {
-            Box(
+            Image(
                 modifier = Modifier
                     .size(96.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.outlineVariant)
+                    .clip(RoundedCornerShape(24.dp)),
+                painter = painterResource(R.drawable.appicon),
+                contentDescription = "앱 아이콘"
             )
 
             Spacer(modifier = Modifier.height(34.dp))

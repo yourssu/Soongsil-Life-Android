@@ -140,4 +140,73 @@ class TimetableTimeParserTest {
             result
         )
     }
+
+    @Test
+    fun withAdditionalTimetableTerm_addsTermMissingFromGetTerms() {
+        val result = listOf(
+            TimetableTerm(year = "2025", semester = TimetableSemester.SECOND)
+        ).withAdditionalTimetableTerm(
+            TimetableTerm(year = "2026", semester = TimetableSemester.FIRST)
+        )
+
+        assertEquals(
+            listOf(
+                TimetableTerm(year = "2026", semester = TimetableSemester.FIRST),
+                TimetableTerm(year = "2025", semester = TimetableSemester.SECOND)
+            ),
+            result
+        )
+    }
+
+    @Test
+    fun withAdditionalTimetableTerm_doesNotDuplicateExistingTerm() {
+        val existingTerm = TimetableTerm(
+            year = "2026",
+            semester = TimetableSemester.FIRST,
+            sourceName = "2026년 1학기"
+        )
+
+        val result = listOf(existingTerm).withAdditionalTimetableTerm(
+            TimetableTerm(year = "2026", semester = TimetableSemester.FIRST)
+        )
+
+        assertEquals(listOf(existingTerm), result)
+    }
+
+    @Test
+    fun withAdditionalTimetableTerm_placesDefaultTimetableTermFirst() {
+        val firstSemester = TimetableTerm(
+            year = "2026",
+            semester = TimetableSemester.FIRST,
+            sourceName = "2026년 1학기"
+        )
+        val secondSemester = TimetableTerm(
+            year = "2026",
+            semester = TimetableSemester.SECOND,
+            sourceName = "2026년 2학기"
+        )
+
+        val result = listOf(firstSemester, secondSemester).withAdditionalTimetableTerm(
+            TimetableTerm(year = "2026", semester = TimetableSemester.SECOND)
+        )
+
+        assertEquals(listOf(secondSemester, firstSemester), result)
+    }
+
+    @Test
+    fun timetableTermOf_parsesDefaultTimetableSemester() {
+        val result = timetableTermOf(
+            year = "2026학년도",
+            semester = "092"
+        )
+
+        assertEquals(
+            TimetableTerm(
+                year = "2026",
+                semester = TimetableSemester.SECOND,
+                sourceName = "2026학년도 092"
+            ),
+            result
+        )
+    }
 }
