@@ -17,8 +17,8 @@ android {
         applicationId = "com.yourssu.soongsil"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = 7
+        versionName = "1.0.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +62,10 @@ dependencies {
 
     // icons
     implementation(libs.androidx.compose.material.icons.extended)
+
+    // in-app update
+    implementation(libs.app.update)
+    implementation(libs.app.update.ktx)
 
 
     implementation(platform(libs.androidx.compose.bom))
