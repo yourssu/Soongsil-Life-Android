@@ -269,14 +269,33 @@ class GradeViewModel @Inject constructor(
         selectedIndex: Int = _uiState.value.selectedSemesterIndex
     ) {
         currentGradeData = data
+
+        // 과목 수가 1개 이상인 학기만 화면에 노출합니다.
+        val visibleSemesters = data.semesters.filter { semester ->
+            val gradeData = data.grades[semester.cacheKey]
+            gradeData != null && gradeData.courses.isNotEmpty()
+        }
+
+        if (visibleSemesters.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    semesterGradeData = SemesterGradeUiData(),
+                    semesters = emptyList(),
+                    selectedSemesterIndex = 0,
+                    gpaPoints = emptyList()
+                )
+            }
+            return
+        }
+
         val validSelectedIndex = selectedIndex
             .coerceAtLeast(0)
-            .coerceAtMost(data.semesters.lastIndex)
+            .coerceAtMost(visibleSemesters.lastIndex)
 
-        val semesters = data.semesters.mapIndexed { index, semester ->
+        val semesters = visibleSemesters.mapIndexed { index, semester ->
             semester.toSemesterTab(isActive = index == validSelectedIndex)
         }
-        val selectedSemester = data.semesters.getOrNull(validSelectedIndex)
+        val selectedSemester = visibleSemesters.getOrNull(validSelectedIndex)
 
         val selectedGradeData = selectedSemester
             ?.let { data.grades[it.cacheKey] }
@@ -333,6 +352,7 @@ class GradeViewModel @Inject constructor(
     // 성적 요약 데이터를 평점 추이 차트용 데이터로 변환합니다.
     private fun GradeData.toGpaPoints(): List<GpaPoint> {
         val points = semesters
+            .filter { semester -> grades[semester.cacheKey]?.courses?.isNotEmpty() == true } // 과목이 있는 학기만 차트에 표시
             .sortedWith(compareBy({ it.year }, { Semester.valueOf(it.semesterName).ordinal }))
             .mapNotNull { semester ->
                 val summary = summaries[semester.cacheKey] ?: return@mapNotNull null
