@@ -40,7 +40,7 @@ import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
-@Composable
+/*@Composable
 fun ChapelSeatLocation(
     chapelData: DashboardChapelData,
     onBackClick: () -> Unit,
@@ -86,7 +86,7 @@ fun ChapelSeatLocation(
         onBackClick = onBackClick,
         onInfoClick = onInfoClick,
     )
-}
+}*/
 
 private fun getSeatLocationFloor(zone: String): String {
     return when (zone.trim().uppercase()) {
@@ -685,7 +685,7 @@ fun ChapelSeatMapCard(
         SeatMapWrap(
             seatInfo = seatInfo,
             pulpitLabel = "STAGE",
-            calloutText = "이 자리예요",
+            calloutText = "자리를 확인해주세요",
         )
 
         HelperText(
@@ -716,6 +716,7 @@ private fun HelperText(
 
 @Composable
 private fun MySeatLocationScreen(
+    modifier: Modifier = Modifier,
     seatCode: String = "B-12",
     seatFloor: String = "1층 앞자리",
     seatBuilding: String = "한경직기념관",
@@ -727,7 +728,6 @@ private fun MySeatLocationScreen(
     calloutText: String = "이 자리에요",
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val seatInfo = SeatInfo(
         code = seatCode,

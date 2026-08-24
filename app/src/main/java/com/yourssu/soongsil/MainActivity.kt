@@ -470,8 +470,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                ChapelScreen(viewModel = viewModel)
-                            }
+                                ChapelScreen(
+                                    viewModel = viewModel,
+                                    onBackClick = navController::popBackStack,
+                                )                            }
                         }
                     }
 
