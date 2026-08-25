@@ -187,6 +187,7 @@ class MainActivity : ComponentActivity() {
                     currentDestination.hasRoute(Login::class) -> false
                     currentDestination.hasRoute(OnBoardingTerms::class) -> false
                     currentDestination.hasRoute(OnBoardingComplete::class) -> false
+                    currentDestination.hasRoute(Scholarship::class) -> false
                     else -> true
                 }
 
@@ -589,5 +590,3 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }
-
-
