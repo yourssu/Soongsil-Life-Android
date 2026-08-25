@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -181,14 +182,7 @@ class MainActivity : ComponentActivity() {
                     .value
                     ?.destination
 
-                // 난독화된 클래스 이름과 무관하게 목적지 타입으로 하단 메뉴 노출 여부를 판단합니다.
-                val showBottomBar = when {
-                    currentDestination == null -> false
-                    currentDestination.hasRoute(Login::class) -> false
-                    currentDestination.hasRoute(OnBoardingTerms::class) -> false
-                    currentDestination.hasRoute(OnBoardingComplete::class) -> false
-                    else -> true
-                }
+                val showBottomBar = shouldShowBottomBar(currentDestination)
 
                 // 현재 목적지 타입에 맞는 하단 메뉴를 선택합니다.
                 val selectedTab = when {
@@ -562,6 +556,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// 난독화된 클래스 이름과 무관하게 목적지 타입으로 하단 메뉴 노출 여부를 판단합니다.
+internal fun shouldShowBottomBar(destination: NavDestination?): Boolean = when {
+    destination == null -> false
+    destination.hasRoute(Login::class) -> false
+    destination.hasRoute(OnBoardingTerms::class) -> false
+    destination.hasRoute(OnBoardingComplete::class) -> false
+    destination.hasRoute(Scholarship::class) -> false
+    else -> true
+}
+
 private fun NavHostController.navigateToMainTab(tab: MainTab) {
     if (tab == MainTab.HOME) {
         // 난독화 여부와 무관하게 현재 목적지가 홈인지 타입으로 확인합니다.
@@ -587,5 +591,3 @@ private fun NavHostController.navigateToMainTab(tab: MainTab) {
         MainTab.MY_PAGE -> navigate(MyPage, options)
     }
 }
-
-
