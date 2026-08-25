@@ -55,6 +55,22 @@ class ChapelViewModel @Inject constructor(
         loadInitialData()
     }
 
+    // 현재 선택된 학기의 채플 데이터를 당겨서 새로고침합니다.
+    fun refreshCurrentSemester() {
+        val year = _uiState.value.selectedYear.ifBlank {
+            _uiState.value.chapelData?.year.orEmpty()
+        }
+        val semester = _uiState.value.selectedSemester.ifBlank {
+            _uiState.value.chapelData?.semester.orEmpty()
+        }
+
+        if (year.isNotBlank() && semester.isNotBlank()) {
+            selectSemester(year, semester)
+        } else {
+            loadInitialData()
+        }
+    }
+
     fun onLoginNavigationHandled() {
         _uiState.update { it.copy(loginRequired = false) }
     }

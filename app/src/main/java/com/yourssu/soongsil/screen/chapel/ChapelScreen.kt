@@ -29,10 +29,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +79,7 @@ fun ChapelScreen(
         uiState = uiState,
         onRetryClick = viewModel::retry,
         onSemesterSelect = viewModel::selectSemester,
+        onRefresh = viewModel::refreshCurrentSemester,
         onBackClick = onBackClick,
         modifier = modifier,
     )
@@ -86,6 +91,7 @@ private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
     onSemesterSelect: (String, String) -> Unit,
+    onRefresh: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -106,6 +112,7 @@ private fun ChapelScreenContent(
             ChapelSuccessScreen(
                 uiState = uiState,
                 onSemesterSelect = onSemesterSelect,
+                onRefresh = onRefresh,
                 onBackClick = onBackClick,
                 modifier = modifier,
             )
@@ -122,15 +129,18 @@ private fun ChapelScreenContent(
 }
 
 // 채플 데이터를 정상적으로 불러왔을 때의 메인 화면입니다.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapelSuccessScreen(
     uiState: ChapelUiState,
     onSemesterSelect: (String, String) -> Unit,
+    onRefresh: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val chapelData = uiState.chapelData ?: return
     val bottomBarPadding = LocalMainBottomBarPadding.current
+    val pullToRefreshState = rememberPullToRefreshState()
 
     val seatFloor = getSeatFloor(chapelData.seat)
     val hasData = chapelData.required > 0 || chapelData.weeklyAttendances.isNotEmpty() || chapelData.seat.isNotBlank()
@@ -150,46 +160,60 @@ private fun ChapelSuccessScreen(
             onBackClick = onBackClick,
         )
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp + bottomBarPadding),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+        PullToRefreshBox(
+            isRefreshing = uiState.isSemesterLoading,
+            onRefresh = onRefresh,
+            state = pullToRefreshState,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullToRefreshState,
+                    isRefreshing = uiState.isSemesterLoading,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            },
+            modifier = Modifier.weight(1f)
         ) {
-            // 상단 요약 & 세그먼트 Progress Bar 섹션
-            ChapelOverviewCard(
-                chapelData = chapelData,
-                hasData = hasData,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp + bottomBarPadding),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // 상단 요약 & 세그먼트 Progress Bar 섹션
+                ChapelOverviewCard(
+                    chapelData = chapelData,
+                    hasData = hasData,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
 
-            // 섹션 구분선
-            androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                thickness = 8.dp
-            )
+                // 섹션 구분선
+                androidx.compose.material3.HorizontalDivider(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    thickness = 8.dp
+                )
 
-            // 좌석 정보 섹션
-            ChapelSeatInfoSection(
-                chapelData = chapelData,
-                seatFloor = seatFloor,
-                hasData = hasData,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+                // 좌석 정보 섹션
+                ChapelSeatInfoSection(
+                    chapelData = chapelData,
+                    seatFloor = seatFloor,
+                    hasData = hasData,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
 
-            // 섹션 구분선
-            androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                thickness = 8.dp
-            )
+                // 섹션 구분선
+                androidx.compose.material3.HorizontalDivider(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    thickness = 8.dp
+                )
 
-            // 출석 정보 섹션 (주차별 출석 목록)
-            ChapelAttendanceHistorySection(
-                weeklyAttendances = chapelData.weeklyAttendances,
-                isLoading = uiState.isSemesterLoading,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+                // 출석 정보 섹션 (주차별 출석 목록)
+                ChapelAttendanceHistorySection(
+                    weeklyAttendances = chapelData.weeklyAttendances,
+                    isLoading = uiState.isSemesterLoading,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
         }
     }
 }
@@ -283,17 +307,16 @@ private fun ChapelSemesterDropdown(
                 )
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(14.dp),
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else {
-                    Text(
-                        text = "⌄",
-                        fontFamily = PretendardFontFamily,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "학기 선택",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -1129,6 +1152,7 @@ private fun ChapelScreenPreview() {
                     )
                 ),
                 onSemesterSelect = { _, _ -> },
+                onRefresh = {},
                 onBackClick = {}
             )
         }
@@ -1182,6 +1206,7 @@ private fun ChapelScreenMixedAttendancePreview() {
                     )
                 ),
                 onSemesterSelect = { _, _ -> },
+                onRefresh = {},
                 onBackClick = {}
             )
         }
@@ -1220,6 +1245,7 @@ private fun ChapelScreenEmptyPreview() {
                     )
                 ),
                 onSemesterSelect = { _, _ -> },
+                onRefresh = {},
                 onBackClick = {}
             )
         }
