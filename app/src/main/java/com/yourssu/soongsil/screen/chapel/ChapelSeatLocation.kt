@@ -40,7 +40,7 @@ import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
-@Composable
+/*@Composable
 fun ChapelSeatLocation(
     chapelData: DashboardChapelData,
     onBackClick: () -> Unit,
@@ -86,7 +86,7 @@ fun ChapelSeatLocation(
         onBackClick = onBackClick,
         onInfoClick = onInfoClick,
     )
-}
+}*/
 
 private fun getSeatLocationFloor(zone: String): String {
     return when (zone.trim().uppercase()) {
@@ -421,13 +421,13 @@ private fun ZoneSeatGrid(
             },
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         var actualSeatRow = 0
 
         pattern.forEach { rowPattern ->
             if (rowPattern.isEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(7.dp))
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -493,7 +493,7 @@ private fun ChapelSeatMap(
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FloorSeatMap(
                 floorLabel = "1층",
@@ -538,7 +538,7 @@ private fun FloorSeatMap(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             text = floorLabel,
@@ -585,14 +585,14 @@ private fun SeatMapWrap(
             .fillMaxWidth()
             .background(backgroundColor, RoundedCornerShape(16.dp))
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-            .padding(start = 12.dp, end = 12.dp, top = 18.dp, bottom = 20.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
             modifier = Modifier
                 .width(240.dp)
-                .height(28.dp)
+                .height(26.dp)
                 .background(MaterialTheme.colorScheme.inverseSurface, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
         ) {
@@ -605,15 +605,13 @@ private fun SeatMapWrap(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
         ChapelSeatMap(
             activeZone = seatInfo.zone,
             mineRow = seatInfo.row,
             mineCol = seatInfo.col,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -685,7 +683,7 @@ fun ChapelSeatMapCard(
         SeatMapWrap(
             seatInfo = seatInfo,
             pulpitLabel = "STAGE",
-            calloutText = "이 자리예요",
+            calloutText = "자리를 확인해주세요",
         )
 
         HelperText(
@@ -716,6 +714,7 @@ private fun HelperText(
 
 @Composable
 private fun MySeatLocationScreen(
+    modifier: Modifier = Modifier,
     seatCode: String = "B-12",
     seatFloor: String = "1층 앞자리",
     seatBuilding: String = "한경직기념관",
@@ -727,7 +726,6 @@ private fun MySeatLocationScreen(
     calloutText: String = "이 자리에요",
     onBackClick: () -> Unit = {},
     onInfoClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val seatInfo = SeatInfo(
         code = seatCode,
