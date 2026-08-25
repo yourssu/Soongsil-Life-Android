@@ -1,10 +1,16 @@
-﻿package com.yourssu.soongsil.data
+package com.yourssu.soongsil.data
 
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.yourssu.data.timetable.TimetableCacheData
 import com.yourssu.data.timetable.TimetableCourse
 import com.yourssu.data.timetable.TimetableData
 import com.yourssu.data.timetable.TimetableDayOfWeek
 import com.yourssu.data.timetable.TimetableSemester
 import com.yourssu.data.timetable.TimetableTerm
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.Term
@@ -13,8 +19,10 @@ import io.github.chlwhdtn03.data.Lms.TimetableCell
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.serialization.json.Json
 import java.time.Year
 import java.util.Locale
 import javax.inject.Inject
@@ -23,10 +31,36 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import io.github.chlwhdtn03.data.Lms.DayOfWeek as LmsDayOfWeek
 
+private val Context.timetableDataStore by preferencesDataStore(name = "timetable_cache")
+
 @Singleton
 class TimetableRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val lmsAuthRepository: LmsAuthRepository
 ) {
+    private val timetableDataKey = stringPreferencesKey("timetable_data")
+    private val json = Json { ignoreUnknownKeys = true }
+
+    // 캐시에 저장된 시간표 데이터를 불러옵니다.
+    suspend fun getCachedData(): TimetableCacheData? {
+        val encodedData = context.timetableDataStore.data.first()[timetableDataKey]
+            ?: return null
+        return runCatching {
+            json.decodeFromString<TimetableCacheData>(encodedData)
+        }.getOrNull()
+    }
+
+    // 시간표 캐시 데이터를 최신 상태로 갱신합니다.
+    suspend fun updateCacheData(data: TimetableCacheData): Result<Unit> = runCatching {
+        context.timetableDataStore.edit { preferences ->
+            preferences[timetableDataKey] = json.encodeToString(data)
+        }
+    }
+
+    // 캐시에 저장된 시간표 데이터를 삭제합니다.
+    suspend fun clearCachedData(): Result<Unit> = runCatching {
+        context.timetableDataStore.edit { it.clear() }
+    }
     @OptIn(kotlin.time.ExperimentalTime::class)
     fun getAvailableTerms(
         completion: (Result<List<TimetableTerm>>) -> Unit

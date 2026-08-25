@@ -3,11 +3,13 @@ package com.yourssu.soongsil.screen.chapel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourssu.data.dashboard.ChapelCacheData
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.data.dashboard.DashboardChapelTerm
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.chlwhdtn03.data.Lms.Semester
 import kotlinx.coroutines.Dispatchers
@@ -20,16 +22,16 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ChapelUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val error: String? = null,
+    val isSemesterLoading: Boolean = false,
+    val isTermsLoading: Boolean = false,
+    val termsError: String? = null,
+    val semesterError: String? = null,
     val selectedYear: String = "",
     val selectedSemester: String = "",
     val chapelData: DashboardChapelData? = null,
-    val isSemesterLoading: Boolean = false,
-    val semesterError: String? = null,
     val availableTerms: List<DashboardChapelTerm> = emptyList(),
-    val isTermsLoading: Boolean = false,
-    val termsError: String? = null,
     val loginRequired: Boolean = false,
 )
 
@@ -105,7 +107,7 @@ class ChapelViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSemesterLoading = false,
-                            semesterError = throwable.message,
+                            semesterError = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired(),
                         )
                     }
@@ -115,31 +117,39 @@ class ChapelViewModel @Inject constructor(
             dashboardRepository.getChapelData(year, semester)
                 .onSuccess { chapelData ->
                     Log.d("ChapelViewModel", "채플 데이터 로드 성공: $year $normalizedSemesterName, seat=${chapelData.seat}, required=${chapelData.required}, attendances=${chapelData.weeklyAttendances.size}")
-                    _uiState.update {
-                        it.copy(
-                            chapelData = chapelData.copy(
-                                year = year,
-                                semester = normalizedSemesterName
-                            ),
+                    val updatedChapelData = chapelData.copy(
+                        year = year,
+                        semester = normalizedSemesterName
+                    )
+                    _uiState.update { state ->
+                        state.copy(
+                            chapelData = updatedChapelData,
                             selectedYear = year,
                             selectedSemester = normalizedSemesterName,
                             isSemesterLoading = false,
                             semesterError = null,
                         )
                     }
+                    // 최신 데이터 로드 성공 시 로컬 캐시를 갱신합니다.
+                    dashboardRepository.updateChapelCacheData(
+                        ChapelCacheData(
+                            chapelData = updatedChapelData,
+                            availableTerms = _uiState.value.availableTerms
+                        )
+                    )
                 }
                 .onFailure { throwable ->
                     Log.e("ChapelViewModel", "채플 데이터 로드 실패: $year $normalizedSemesterName", throwable)
                     _uiState.update {
                         it.copy(
-                            chapelData = DashboardChapelData(
+                            chapelData = it.chapelData ?: DashboardChapelData(
                                 year = year,
                                 semester = normalizedSemesterName,
                             ),
                             selectedYear = year,
                             selectedSemester = normalizedSemesterName,
                             isSemesterLoading = false,
-                            semesterError = null,
+                            semesterError = throwable.toUserFriendlyMessage(),
                         )
                     }
                 }
@@ -164,7 +174,7 @@ class ChapelViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isTermsLoading = false,
-                            termsError = throwable.message,
+                            termsError = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired(),
                         )
                     }
@@ -175,44 +185,64 @@ class ChapelViewModel @Inject constructor(
                 .onSuccess { terms ->
                     hasLoadedAvailableTerms = true
                     _uiState.update { state ->
+                        val combinedTerms = (state.availableTerms + terms)
+                            .distinct()
+                            .sortedWith(
+                                compareByDescending<DashboardChapelTerm> { it.year }
+                                    .thenByDescending { it.semester },
+                            )
                         state.copy(
-                            availableTerms = (state.availableTerms + terms)
-                                .distinct()
-                                .sortedWith(
-                                    compareByDescending<DashboardChapelTerm> { it.year }
-                                        .thenByDescending { it.semester },
-                                ),
+                            availableTerms = combinedTerms,
                             isTermsLoading = false,
                             termsError = null,
                         )
                     }
+
+                    // 최신 학기 목록을 캐시에 동기화합니다.
+                    _uiState.value.chapelData?.let { chapel ->
+                        dashboardRepository.updateChapelCacheData(
+                            ChapelCacheData(
+                                chapelData = chapel,
+                                availableTerms = _uiState.value.availableTerms
+                            )
+                        )
+                    }
+
+                    // 선택된 학기가 없거나 데이터가 비어있는 경우 최신 학기 데이터 자동 조회
+                    val currentChapel = _uiState.value.chapelData
+                    val topTerm = _uiState.value.availableTerms.firstOrNull()
+                    if (topTerm != null && (currentChapel == null || currentChapel.seat.isBlank())) {
+                        selectSemester(topTerm.year, topTerm.semester)
+                    }
                 }
-                .onFailure {
+                .onFailure { throwable ->
                     _uiState.update {
                         it.copy(
                             isTermsLoading = false,
-                            termsError = "조회할 수 있는 채플 학기를 불러오지 못했습니다.",
+                            termsError = throwable.toUserFriendlyMessage(),
                         )
                     }
                 }
         }
     }
 
-    // 초기 진입 시 캐시된 채플 데이터를 불러오고 학기 목록을 함께 로드합니다.
+    // 초기 진입 시 DataStore에 캐시된 채플 데이터를 먼저 불러오고, 백그라운드에서 학기 목록과 데이터를 새로고침합니다.
     private fun loadInitialData() {
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    error = null,
-                )
-            }
-
+            val cachedChapelCache = dashboardRepository.getCachedChapelData()
             val dashboardData = dashboardRepository.getCachedData()
-            val chapelData = dashboardData?.chapel
-            studentId = dashboardData?.studentId.orEmpty()
-            val initialYear = chapelData?.year.orEmpty()
-            val initialSemester = chapelData?.semester.orEmpty()
+
+            val initialChapelData = cachedChapelCache?.chapelData
+                ?: dashboardData?.chapel
+                ?: DashboardChapelData()
+
+            val initialTerms = cachedChapelCache?.availableTerms?.takeIf { it.isNotEmpty() }
+                ?: initialChapelData.takeIf { it.year.isNotBlank() && it.semester.isNotBlank() }
+                    ?.let { listOf(DashboardChapelTerm(it.year, it.semester)) }
+                ?: emptyList()
+
+            val initialYear = initialChapelData.year
+            val initialSemester = initialChapelData.semester
 
             _uiState.update {
                 it.copy(
@@ -220,18 +250,8 @@ class ChapelViewModel @Inject constructor(
                     error = null,
                     selectedYear = initialYear,
                     selectedSemester = initialSemester,
-                    chapelData = chapelData ?: DashboardChapelData(),
-                    availableTerms = chapelData
-                        ?.takeIf { it.year.isNotBlank() && it.semester.isNotBlank() }
-                        ?.let {
-                            listOf(
-                                DashboardChapelTerm(
-                                    year = it.year,
-                                    semester = it.semester,
-                                ),
-                            )
-                        }
-                        .orEmpty(),
+                    chapelData = initialChapelData,
+                    availableTerms = initialTerms,
                 )
             }
 

@@ -6,6 +6,7 @@ import com.yourssu.data.graduation.GraduationData
 import com.yourssu.soongsil.data.GraduationRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,7 @@ class GraduationViewModel @Inject constructor(
     )
 
     init {
-        loadGraduationData()
+        loadInitialGraduationData()
     }
 
     fun retry() {
@@ -43,8 +44,29 @@ class GraduationViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
+    // 초기 진입 시 로컬 캐시를 먼저 불러오고, 백그라운드에서 최신 데이터를 조회합니다.
+    private fun loadInitialGraduationData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cachedData = graduationRepository.getCachedData()
+            if (cachedData != null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        graduationData = cachedData,
+                        error = null
+                    )
+                }
+            }
+            loadGraduationData()
+        }
+    }
+
+    // LMS 서버에서 최신 졸업사정표 데이터를 불러와 UI 및 캐시를 갱신합니다.
     private fun loadGraduationData() {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        val hasExistingData = _uiState.value.graduationData != null
+        if (!hasExistingData) {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
             lmsAuthRepository.ensureActiveSession()
@@ -52,7 +74,7 @@ class GraduationViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = throwable.message,
+                            error = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
@@ -69,7 +91,7 @@ class GraduationViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = throwable.message ?: "졸업사정표를 불러오지 못했습니다."
+                            error = throwable.toUserFriendlyMessage()
                         )
                     }
                 }

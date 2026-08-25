@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.yourssu.data.dashboard.ChapelCacheData
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.data.dashboard.DashboardChapelTerm
 import com.yourssu.data.dashboard.DashboardChapelWeeklyAttendance
@@ -32,12 +33,14 @@ import kotlin.coroutines.resumeWithException
 import kotlin.time.ExperimentalTime
 
 private val Context.dashboardDataStore by preferencesDataStore(name = "dashboard_cache")
+private val Context.chapelDataStore by preferencesDataStore(name = "chapel_cache")
 
 @Singleton
 class DashboardRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val dashboardDataKey = stringPreferencesKey("dashboard_data")
+    private val chapelDataKey = stringPreferencesKey("chapel_data")
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun getCachedData(): DashboardData? {
@@ -50,6 +53,27 @@ class DashboardRepository @Inject constructor(
 
     suspend fun clearCachedData(): Result<Unit> = runCatching {
         context.dashboardDataStore.edit { it.clear() }
+    }
+
+    // 캐시에 저장된 채플 화면 데이터를 불러옵니다.
+    suspend fun getCachedChapelData(): ChapelCacheData? {
+        val encodedData = context.chapelDataStore.data.first()[chapelDataKey]
+            ?: return null
+        return runCatching {
+            json.decodeFromString<ChapelCacheData>(encodedData)
+        }.getOrNull()
+    }
+
+    // 채플 캐시 데이터를 최신 상태로 갱신합니다.
+    suspend fun updateChapelCacheData(data: ChapelCacheData): Result<Unit> = runCatching {
+        context.chapelDataStore.edit { preferences ->
+            preferences[chapelDataKey] = json.encodeToString(data)
+        }
+    }
+
+    // 캐시에 저장된 채플 데이터를 삭제합니다.
+    suspend fun clearCachedChapelData(): Result<Unit> = runCatching {
+        context.chapelDataStore.edit { it.clear() }
     }
 
     // LMS API에서 특정 학기의 채플 데이터를 새로 불러옵니다.

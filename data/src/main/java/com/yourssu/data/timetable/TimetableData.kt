@@ -1,4 +1,4 @@
-﻿package com.yourssu.data.timetable
+package com.yourssu.data.timetable
 
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -70,3 +70,11 @@ enum class TimetableDayOfWeek(val shortLabel: String, val fullLabel: String) {
     FRIDAY("금", "금요일"),
     SATURDAY("토", "토요일");
 }
+
+// 시간표 화면 로컬 캐싱을 위한 통합 데이터 모델입니다.
+@Serializable
+data class TimetableCacheData(
+    val defaultTimetable: TimetableData = TimetableData(),
+    val availableTerms: List<TimetableTerm> = emptyList(),
+    val timetablesByTerm: Map<String, TimetableData> = emptyMap(),
+)
