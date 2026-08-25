@@ -7,6 +7,7 @@ import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -76,7 +77,7 @@ class DashboardViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             loginRequired = throwable.isLmsLoginRequired(),
-                            error = throwable.message,
+                            error = throwable.toUserFriendlyMessage(),
                             refreshStatus = if (throwable.isLmsLoginRequired()) {
                                 DashboardRefreshStatus.HIDDEN
                             } else {
@@ -121,7 +122,7 @@ class DashboardViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         loginRequired = loginRequired,
-                        error = throwable.message,
+                        error = throwable.toUserFriendlyMessage(),
                         refreshStatus = if (loginRequired) {
                             DashboardRefreshStatus.HIDDEN
                         } else {
@@ -187,7 +188,7 @@ class DashboardViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = throwable.message,
+                        error = throwable.toUserFriendlyMessage(),
                         refreshStatus = DashboardRefreshStatus.ERROR,
                         isPullRefreshing = false
                     )

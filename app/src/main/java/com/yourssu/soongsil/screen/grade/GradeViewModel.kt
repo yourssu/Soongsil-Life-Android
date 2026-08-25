@@ -9,6 +9,7 @@ import com.yourssu.data.grade.GradeSemesterSummary
 import com.yourssu.soongsil.data.GradeRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import com.yourssu.soongsil.screen.grade.components.GradeRefreshStatus
 import com.yourssu.soongsil.screen.grade.model.CourseItem
 import com.yourssu.soongsil.screen.grade.model.GpaPoint
@@ -83,7 +84,7 @@ class GradeViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(loginRequired = throwable.isLmsLoginRequired())
                     }
-                    updateRefreshError(throwable.message)
+                    updateRefreshError(throwable.toUserFriendlyMessage())
                     hideRefreshPopupAfterDelay()
                     return@launch
                 }
@@ -99,7 +100,7 @@ class GradeViewModel @Inject constructor(
                     )
                 }
                 .onFailure { throwable ->
-                    updateRefreshError(throwable.message)
+                    updateRefreshError(throwable.toUserFriendlyMessage())
                     hideRefreshPopupAfterDelay()
                 }
         }

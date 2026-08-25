@@ -96,6 +96,16 @@ class TimetableViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
+    // 에러 팝업을 닫습니다.
+    fun dismissError() {
+        _uiState.update {
+            it.copy(
+                errorMessage = null,
+                termLoadError = null
+            )
+        }
+    }
+
     private fun loadInitialTimetable() {
         val currentRequestId = ++termRequestId
 

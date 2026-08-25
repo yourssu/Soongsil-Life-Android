@@ -53,6 +53,7 @@ class DashboardRepository @Inject constructor(
 
     suspend fun clearCachedData(): Result<Unit> = runCatching {
         context.dashboardDataStore.edit { it.clear() }
+        context.chapelDataStore.edit { it.clear() }
     }
 
     // 캐시에 저장된 채플 화면 데이터를 불러옵니다.
@@ -84,6 +85,14 @@ class DashboardRepository @Inject constructor(
         val chapelInformation = kotlinx.coroutines.withContext(Dispatchers.IO) {
             LmsApi.getChapelTable(year = year, semester = semester)
         }
+        val hasData = chapelInformation.seatStatusTable.items.isNotEmpty() ||
+                chapelInformation.attendanceTable.items.isNotEmpty() ||
+                chapelInformation.absenceTable.items.isNotEmpty()
+
+        if (!hasData) {
+            throw NoSuchElementException("해당 학기의 채플 정보가 없습니다.")
+        }
+
         chapelInformation.toDashboardChapel(defaultYear = year, defaultSemester = semester.nameKor)
     }
 
@@ -292,39 +301,15 @@ class DashboardRepository @Inject constructor(
         else -> removeSuffix("학기")
     }
     private suspend fun ChapelInformation.toAvailableChapelData(): DashboardChapelData {
-        val newChapelData = toDashboardChapel()
+        val hasData = seatStatusTable.items.any { it.seatNo.isNotBlank() } ||
+                attendanceTable.items.isNotEmpty() ||
+                absenceTable.items.isNotEmpty()
 
-        val hasNewSeatData = seatStatusTable.items.any {
-            it.seatNo.isNotBlank()
+        if (!hasData) {
+            throw NoSuchElementException("이번 학기 채플 정보가 없습니다.")
         }
 
-        if (hasNewSeatData) {
-            Log.d(
-                TAG,
-                "새 채플 좌석 정보를 사용합니다: ${newChapelData.seat}"
-            )
-
-            return newChapelData
-        }
-
-        val cachedChapelData = getCachedData()?.chapel
-
-        if (cachedChapelData != null && cachedChapelData.seat.isNotBlank()) {
-            Log.d(
-                TAG,
-                "새 좌석 정보가 없어 기존 대시보드의 채플 정보를 사용합니다: " +
-                        cachedChapelData.seat
-            )
-
-            return newChapelData.copy(
-                seat = cachedChapelData.seat,
-                seatDescription = cachedChapelData.seatDescription,
-            )
-        }
-
-        Log.d(TAG, "새 좌석 정보와 저장된 좌석 정보가 모두 없습니다.")
-
-        return newChapelData
+        return toDashboardChapel()
     }
 
     private fun ChapelInformation.toDashboardChapel(

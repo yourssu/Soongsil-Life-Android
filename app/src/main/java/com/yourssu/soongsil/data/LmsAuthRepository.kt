@@ -225,9 +225,14 @@ fun Throwable.toUserFriendlyMessage(): String {
         val msg = cause.message.orEmpty()
         val name = cause.javaClass.simpleName
         name.contains("WebDynproSessionException", ignoreCase = true) ||
+                name.contains("WebDynpro", ignoreCase = true) ||
                 msg.contains("Web Dynpro", ignoreCase = true) ||
                 msg.contains("화면 세션을 초기화하지 못했습니다", ignoreCase = true) ||
-                cause.toString().contains("WebDynproSessionException", ignoreCase = true)
+                msg.contains("초기화하지 못했습니다", ignoreCase = true) ||
+                msg.contains("세션", ignoreCase = true) && msg.contains("실패", ignoreCase = true) ||
+                msg.contains("ZCMW", ignoreCase = true) ||
+                msg.contains("거절", ignoreCase = true) ||
+                cause.toString().contains("WebDynpro", ignoreCase = true)
     }
 
     return if (isWebDynproBlocked) {

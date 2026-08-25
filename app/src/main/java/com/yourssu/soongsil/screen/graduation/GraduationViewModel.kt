@@ -44,6 +44,11 @@ class GraduationViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
+    // 에러 팝업을 닫습니다.
+    fun dismissError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     // 초기 진입 시 로컬 캐시를 먼저 불러오고, 백그라운드에서 최신 데이터를 조회합니다.
     private fun loadInitialGraduationData() {
         viewModelScope.launch(Dispatchers.IO) {

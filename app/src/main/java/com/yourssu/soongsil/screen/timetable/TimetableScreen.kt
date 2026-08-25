@@ -1,4 +1,4 @@
-﻿package com.yourssu.soongsil.screen.timetable
+package com.yourssu.soongsil.screen.timetable
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
@@ -210,7 +210,8 @@ fun TimetableScreen(
     modifier: Modifier = Modifier
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
-    val selectTermAction = onSelectTerm ?: hiltViewModel<TimetableViewModel>()::selectTerm
+    val timetableViewModel = hiltViewModel<TimetableViewModel>()
+    val selectTermAction = onSelectTerm ?: timetableViewModel::selectTerm
     val currentYear = uiState.selectedYear.ifBlank { uiState.year.toAcademicYearValue() }
     val currentSemester = uiState.semester.toTimetableSemesterOrNull()
         ?: uiState.selectedSemester.takeIf { currentYear.isNotBlank() }
@@ -224,6 +225,37 @@ fun TimetableScreen(
     var isTermSelectionVisible by remember { mutableStateOf(false) }
     var pendingTerm by remember(selectedTerm, uiState.availableTerms) {
         mutableStateOf(selectedTerm ?: uiState.availableTerms.firstOrNull())
+    }
+
+    val activeError = uiState.errorMessage ?: uiState.termLoadError
+    if (activeError != null && uiState.courses.isNotEmpty()) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = timetableViewModel::dismissError,
+            title = {
+                Text(
+                    text = "안내",
+                    fontFamily = FontFamily.Default,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = activeError,
+                    fontFamily = FontFamily.Default,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = timetableViewModel::dismissError) {
+                    Text(
+                        text = "확인",
+                        fontFamily = FontFamily.Default,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
     }
 
     Box(
@@ -248,6 +280,12 @@ fun TimetableScreen(
             )
 
             when {
+                uiState.courses.isNotEmpty() -> TimetableSuccessState(
+                    courses = uiState.courses,
+                    selectedTerm = selectedTerm,
+                    currentDateTime = currentDateTimeOverride,
+                    onCourseClick = onCourseClick
+                )
                 uiState.isLoadingTerms || uiState.isLoading -> TimetableLoadingState()
                 uiState.termLoadError != null -> TimetableAvailableTermsState(
                     message = uiState.termLoadError,
@@ -261,15 +299,9 @@ fun TimetableScreen(
                     message = uiState.errorMessage,
                     onRetry = onRetry
                 )
-                uiState.courses.isEmpty() -> TimetableEmptyState(
+                else -> TimetableEmptyState(
                     year = currentYear,
                     semester = currentSemester?.label.orEmpty()
-                )
-                else -> TimetableSuccessState(
-                    courses = uiState.courses,
-                    selectedTerm = selectedTerm,
-                    currentDateTime = currentDateTimeOverride,
-                    onCourseClick = onCourseClick
                 )
             }
         }

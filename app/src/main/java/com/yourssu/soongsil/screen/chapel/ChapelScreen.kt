@@ -23,8 +23,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -34,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -69,9 +72,9 @@ import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 // 채플 화면의 진입점 Composable입니다.
 @Composable
 fun ChapelScreen(
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChapelViewModel = hiltViewModel(),
-    onBackClick: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -80,48 +83,67 @@ fun ChapelScreen(
         onRetryClick = viewModel::retry,
         onSemesterSelect = viewModel::selectSemester,
         onRefresh = viewModel::refreshCurrentSemester,
+        onDismissError = viewModel::dismissError,
         onBackClick = onBackClick,
         modifier = modifier,
     )
 }
 
-// 상태별(로딩, 에러, 성공) 화면 컨텐츠를 분기하여 렌더링합니다.
+// 상태별(로딩, 에러 팝업, 성공 화면) 컨텐츠를 렌더링합니다. 화면 전체를 막지 않고 팝업으로 안내합니다.
 @Composable
 private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
     onSemesterSelect: (String, String) -> Unit,
     onRefresh: () -> Unit,
+    onDismissError: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val activeError = uiState.error ?: uiState.semesterError ?: uiState.termsError
+
+    // 에러 발생 시 화면을 가리지 않고 팝업으로 사용자에게 안내합니다.
+    if (activeError != null) {
+        AlertDialog(
+            onDismissRequest = onDismissError,
+            title = {
+                Text(
+                    text = "안내",
+                    fontFamily = PretendardFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = activeError,
+                    fontFamily = PretendardFontFamily,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onDismissError) {
+                    Text(
+                        text = "확인",
+                        fontFamily = PretendardFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
+    }
+
     when {
-        uiState.isLoading -> {
+        uiState.isLoading && uiState.chapelData == null -> {
             ChapelLoadingScreen(modifier = modifier)
         }
 
-        uiState.error != null -> {
-            ChapelErrorScreen(
-                message = uiState.error,
-                onRetryClick = onRetryClick,
-                modifier = modifier,
-            )
-        }
-
-        uiState.chapelData != null -> {
+        else -> {
             ChapelSuccessScreen(
                 uiState = uiState,
                 onSemesterSelect = onSemesterSelect,
                 onRefresh = onRefresh,
                 onBackClick = onBackClick,
-                modifier = modifier,
-            )
-        }
-
-        else -> {
-            ChapelErrorScreen(
-                message = "채플 정보를 불러올 수 없습니다.",
-                onRetryClick = onRetryClick,
                 modifier = modifier,
             )
         }
@@ -138,7 +160,7 @@ private fun ChapelSuccessScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val chapelData = uiState.chapelData ?: return
+    val chapelData = uiState.chapelData ?: DashboardChapelData()
     val bottomBarPadding = LocalMainBottomBarPadding.current
     val pullToRefreshState = rememberPullToRefreshState()
 
@@ -159,6 +181,39 @@ private fun ChapelSuccessScreen(
             onSemesterSelect = onSemesterSelect,
             onBackClick = onBackClick,
         )
+
+        // 학기 변경 또는 네트워크 에러 안내 배너
+        val currentError = uiState.semesterError ?: uiState.termsError
+        if (currentError != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "경고",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = currentError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontFamily = PretendardFontFamily,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
 
         PullToRefreshBox(
             isRefreshing = uiState.isSemesterLoading,

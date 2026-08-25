@@ -248,6 +248,37 @@ fun GraduationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // 에러 발생 시 캐시 데이터가 있으면 화면을 막지 않고 팝업으로 안내합니다.
+    if (uiState.error != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = viewModel::dismissError,
+            title = {
+                Text(
+                    text = "안내",
+                    fontFamily = PretendardFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = uiState.error ?: "졸업사정표를 불러오지 못했습니다.",
+                    fontFamily = PretendardFontFamily,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = viewModel::dismissError) {
+                    Text(
+                        text = "확인",
+                        fontFamily = PretendardFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.graduationData == null -> {
