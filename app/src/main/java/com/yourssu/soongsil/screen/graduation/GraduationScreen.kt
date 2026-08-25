@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,6 +51,7 @@ import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
 import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
+
 
 private val previewFailData = GraduationData(
     overallResult = "불가능",
@@ -169,6 +173,36 @@ private fun GraduationScreenFailPreview() {
 private fun GraduationScreenPassPreview() {
     SoongsilLifeAndroidTheme {
         GraduationContent(data = previewPassData)
+    }
+}
+
+@Composable
+@Preview(name = "프로그레스바 (기준 미달) - Light")
+@Preview(name = "프로그레스바 (기준 미달) - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+private fun GraduationProgressBarUnderPreview() {
+    SoongsilLifeAndroidTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            GraduationRequirementProgressBar(
+                standardValue = "133",
+                calculatedValue = "131.0",
+                isPass = false
+            )
+        }
+    }
+}
+
+@Composable
+@Preview(name = "프로그레스바 (기준 초과) - Light")
+@Preview(name = "프로그레스바 (기준 초과) - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+private fun GraduationProgressBarOverPreview() {
+    SoongsilLifeAndroidTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            GraduationRequirementProgressBar(
+                standardValue = "12",
+                calculatedValue = "15.0",
+                isPass = true
+            )
+        }
     }
 }
 
@@ -484,6 +518,10 @@ private fun GraduationSection(
     }
 }
 
+// 각 졸업 요건 항목의 상태와 기준값/계산값을 표시하는 행 컴포넌트입니다.
+// @param item 졸업 요건 항목 데이터
+// @param showSubjectDetails 과목 상세 표시 여부
+// @param modifier 컴포저블 수정자
 @Composable
 private fun GraduationRequirementRow(
     item: GraduationRequirementItem,
@@ -492,74 +530,93 @@ private fun GraduationRequirementRow(
 ) {
     val isPass = item.result.isPassResult()
     val hasCalculation = item.standardValue.isNotBlank() || item.calculatedValue.isNotBlank()
-    val usedSubjects = item.usedSubjects.filter { it.isNotBlank() }.distinct()
+    val usedSubjects = item.usedSubjects.filter { it.isNotBlank() }
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .padding(vertical = 8.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (hasCalculation) 53.5.dp else 35.dp)
-                .padding(top = 8.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = item.requirement,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = PretendardFontFamily,
+                color = if (isSystemInDarkTheme()) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    SoongsilPalette.Gray950
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
+            )
+            ResultBadge(isPass = isPass, text = item.result)
+        }
+
+        // 기준/계산값이 있는 항목은 Linear Progress Bar와 통과 기준점을 표시합니다.
+        if (hasCalculation) {
+            Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.requirement,
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = PretendardFontFamily,
-                    color = if (isSystemInDarkTheme()) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        SoongsilPalette.Gray950
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
-                )
-                ResultBadge(isPass = isPass, text = item.result)
-            }
-            // 기준/계산값이 있는 항목만 서브텍스트를 보여줍니다.
-            if (hasCalculation) {
-                Row(modifier = Modifier.padding(top = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "기준 ${item.standardValue} · 계산 ${item.calculatedValue}",
+                        text = "취득 ${item.calculatedValue}",
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = PretendardFontFamily,
+                        color = if (isSystemInDarkTheme()) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            SoongsilPalette.Gray950
+                        }
+                    )
+                    Text(
+                        text = " / 필요 ${item.standardValue}",
                         fontSize = 12.sp,
                         lineHeight = 14.sp,
                         fontFamily = PretendardFontFamily,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (item.difference.isNotBlank()) {
-                        Text(
-                            text = " · ${item.difference}",
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = PretendardFontFamily,
-                            color = if (item.difference.startsWith("-")) {
-                                SoongsilPalette.Red400
-                            } else {
-                                SoongsilPalette.Green400
-                            }
-                        )
-                    }
+                }
+                if (item.difference.isNotBlank()) {
+                    Text(
+                        text = item.difference,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = PretendardFontFamily,
+                        color = if (item.difference.startsWith("-")) {
+                            SoongsilPalette.Red400
+                        } else {
+                            SoongsilPalette.Green400
+                        }
+                    )
                 }
             }
+            Spacer(modifier = Modifier.height(4.dp))
+            GraduationRequirementProgressBar(
+                standardValue = item.standardValue,
+                calculatedValue = item.calculatedValue,
+                isPass = isPass
+            )
         }
 
         if (showSubjectDetails && usedSubjects.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
             FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -567,6 +624,121 @@ private fun GraduationRequirementRow(
                     UsedSubjectBadge(subject = subject)
                 }
             }
+        }
+    }
+}
+
+// 졸업 요건의 기준값과 계산값을 Linear Progress Bar 및 통과 기준점 마커로 시각화합니다.
+// @param standardValue 요건의 기준값 문자열
+// @param calculatedValue 요건의 현재 계산값 문자열
+// @param isPass 요건 충족 여부
+// @param modifier 컴포저블 수정자
+@Composable
+private fun GraduationRequirementProgressBar(
+    standardValue: String,
+    calculatedValue: String,
+    isPass: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    // 기준값과 계산값을 실수형으로 변환합니다.
+    val standard = standardValue.toDoubleOrNull() ?: 0.0
+    val calculated = calculatedValue.toDoubleOrNull() ?: 0.0
+
+    // 기준값을 채우기 전에는 기준값이 max가 되고, 계산값이 기준값을 넘기면 계산값이 max가 됩니다.
+    val maxValue = maxOf(standard, calculated)
+
+    // 프로그레스바의 진행률(0.0 ~ 1.0)을 계산합니다.
+    val progress = if (maxValue > 0.0) {
+        (calculated / maxValue).toFloat().coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    // 기준점(통과 기준선)의 위치 비율(0.0 ~ 1.0)을 계산합니다.
+    val passPoint = if (maxValue > 0.0) {
+        (standard / maxValue).toFloat().coerceIn(0f, 1f)
+    } else {
+        1f
+    }
+
+    val trackColor = if (isDark) {
+        SoongsilPalette.Gray875
+    } else {
+        SoongsilPalette.Blue100
+    }
+    val progressColor = if (isPass) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        SoongsilPalette.Blue500
+    }
+    val markerColor = if (isDark) {
+        SoongsilPalette.Red400
+    } else {
+        SoongsilPalette.Red600
+    }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(29.dp)
+    ) {
+        // 프로그레스 바 배경 (Track)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(trackColor)
+        )
+        // 프로그레스 바 채움 (Progress Fill)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress)
+                .height(6.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(progressColor)
+        )
+
+        // 기준점 마커 및 라벨 표시 (채플 화면과 동일한 기준점 시각화)
+        if (maxValue > 0.0) {
+            val markerWidth = 3.dp
+            val markerHeight = 11.dp
+            // 마커의 X 좌표 (0 ~ maxWidth - markerWidth)
+            val markerX = ((maxWidth - markerWidth) * passPoint).coerceIn(0.dp, (maxWidth - markerWidth).coerceAtLeast(0.dp))
+            val markerCenterX = markerX + markerWidth / 2
+
+            // 라벨 폭 및 정렬 (passPoint 위치에 맞춰 선과 글자가 완벽하게 정렬되도록 보정)
+            val labelWidth = 36.dp
+            val labelX = (markerCenterX - labelWidth * passPoint)
+                .coerceIn(0.dp, (maxWidth - labelWidth).coerceAtLeast(0.dp))
+            val textAlign = when {
+                passPoint >= 0.85f -> TextAlign.End
+                passPoint <= 0.15f -> TextAlign.Start
+                else -> TextAlign.Center
+            }
+
+            // 필요 기준 세로 마커 라인 (눈에 잘 띄도록 밝고 두껍게 표시)
+            Box(
+                modifier = Modifier
+                    .offset(x = markerX)
+                    .width(markerWidth)
+                    .height(markerHeight)
+                    .background(markerColor, RoundedCornerShape(1.5.dp))
+            )
+            // 필요 텍스트 라벨 (마커 선과 항상 일치하도록 정렬)
+            Text(
+                text = "필요",
+                modifier = Modifier
+                    .offset(x = labelX, y = 12.dp)
+                    .width(labelWidth),
+                color = markerColor,
+                fontFamily = PretendardFontFamily,
+                fontSize = 11.5.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = textAlign
+            )
         }
     }
 }
