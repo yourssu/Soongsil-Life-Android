@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -228,35 +230,6 @@ fun TimetableScreen(
     }
 
     val activeError = uiState.errorMessage ?: uiState.termLoadError
-    if (activeError != null && uiState.courses.isNotEmpty()) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = timetableViewModel::dismissError,
-            title = {
-                Text(
-                    text = "안내",
-                    fontFamily = FontFamily.Default,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            },
-            text = {
-                Text(
-                    text = activeError,
-                    fontFamily = FontFamily.Default,
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = timetableViewModel::dismissError) {
-                    Text(
-                        text = "확인",
-                        fontFamily = FontFamily.Default,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        )
-    }
 
     Box(
         modifier = modifier
@@ -270,14 +243,50 @@ fun TimetableScreen(
                 .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 20.dp + bottomBarPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            TimetableHeader(
-                year = currentYear,
-                semester = currentSemester?.label.orEmpty(),
-                onTermClick = {
-                    pendingTerm = selectedTerm ?: uiState.availableTerms.firstOrNull()
-                    isTermSelectionVisible = true
+            // 상단 헤더 및 에러 안내 뱃지 영역 (헤더와 에러 뱃지 간격을 좁게 유지)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TimetableHeader(
+                    year = currentYear,
+                    semester = currentSemester?.label.orEmpty(),
+                    onTermClick = {
+                        pendingTerm = selectedTerm ?: uiState.availableTerms.firstOrNull()
+                        isTermSelectionVisible = true
+                    }
+                )
+
+                // 상단 에러 안내 뱃지
+                if (activeError != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "경고",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = activeError,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontFamily = FontFamily.Default,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
-            )
+            }
 
             when {
                 uiState.courses.isNotEmpty() -> TimetableSuccessState(
@@ -1600,7 +1609,9 @@ private fun TimetableEmptyPreview() {
     }
 }
 
-@Preview(name = "Timetable Error", showBackground = true, widthDp = 402)
+// 시간표 화면 로딩 실패 에러 프리뷰입니다.
+@Preview(name = "Timetable Error - Light", showBackground = true, widthDp = 402)
+@Preview(name = "Timetable Error - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
 @Composable
 private fun TimetableErrorPreview() {
     SoongsilLifeAndroidTheme {
@@ -1612,6 +1623,30 @@ private fun TimetableErrorPreview() {
                 selectedYear = "2026",
                 selectedSemester = TimetableSemester.SECOND,
                 errorMessage = "LMS 세션이 만료되어 시간표를 불러오지 못했습니다."
+            ),
+            onRetry = {},
+            onCourseClick = {},
+            onDismissCourseDetail = {},
+            onSelectTerm = { _, _ -> }
+        )
+    }
+}
+
+// 상단 에러 안내 뱃지와 시간표 데이터가 함께 표시되는 화면 프리뷰입니다.
+@Preview(name = "Timetable With Error Badge - Light", showBackground = true, widthDp = 402)
+@Preview(name = "Timetable With Error Badge - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
+@Composable
+private fun TimetableWithErrorBadgePreview() {
+    SoongsilLifeAndroidTheme {
+        TimetableScreen(
+            uiState = TimetableViewModel.TimetableUiState(
+                year = "2026학년도",
+                semester = "2학기",
+                availableTerms = previewAvailableTerms,
+                selectedYear = "2026",
+                selectedSemester = TimetableSemester.SECOND,
+                courses = previewCourses,
+                errorMessage = "유세인트 통신 상태가 원활하지 않아 캐시된 데이터를 표시합니다."
             ),
             onRetry = {},
             onCourseClick = {},

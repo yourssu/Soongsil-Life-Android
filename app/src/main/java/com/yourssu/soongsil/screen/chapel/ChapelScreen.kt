@@ -26,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -36,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -83,56 +81,21 @@ fun ChapelScreen(
         onRetryClick = viewModel::retry,
         onSemesterSelect = viewModel::selectSemester,
         onRefresh = viewModel::refreshCurrentSemester,
-        onDismissError = viewModel::dismissError,
         onBackClick = onBackClick,
         modifier = modifier,
     )
 }
 
-// 상태별(로딩, 에러 팝업, 성공 화면) 컨텐츠를 렌더링합니다. 화면 전체를 막지 않고 팝업으로 안내합니다.
+// 상태별(로딩, 성공 화면) 컨텐츠를 렌더링합니다. 에러는 화면 차단 없이 상단 뱃지로 표시됩니다.
 @Composable
 private fun ChapelScreenContent(
     uiState: ChapelUiState,
     onRetryClick: () -> Unit,
     onSemesterSelect: (String, String) -> Unit,
     onRefresh: () -> Unit,
-    onDismissError: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeError = uiState.error ?: uiState.semesterError ?: uiState.termsError
-
-    // 에러 발생 시 화면을 가리지 않고 팝업으로 사용자에게 안내합니다.
-    if (activeError != null) {
-        AlertDialog(
-            onDismissRequest = onDismissError,
-            title = {
-                Text(
-                    text = "안내",
-                    fontFamily = PretendardFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            },
-            text = {
-                Text(
-                    text = activeError,
-                    fontFamily = PretendardFontFamily,
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = onDismissError) {
-                    Text(
-                        text = "확인",
-                        fontFamily = PretendardFontFamily,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        )
-    }
-
     when {
         uiState.isLoading && uiState.chapelData == null -> {
             ChapelLoadingScreen(modifier = modifier)
@@ -182,14 +145,14 @@ private fun ChapelSuccessScreen(
             onBackClick = onBackClick,
         )
 
-        // 학기 변경 또는 네트워크 에러 안내 배너
-        val currentError = uiState.semesterError ?: uiState.termsError
+        // 상단 에러 안내 뱃지 (탑바와의 간격을 줄여 상단에 자연스럽게 이어지도록 배치)
+        val currentError = uiState.error ?: uiState.semesterError ?: uiState.termsError
         if (currentError != null) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                    .padding(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 6.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
@@ -1293,6 +1256,51 @@ private fun ChapelScreenEmptyPreview() {
                         late = 0,
                         absent = 0,
                         weeklyAttendances = emptyList()
+                    ),
+                    availableTerms = listOf(
+                        DashboardChapelTerm("2026", "1학기"),
+                        DashboardChapelTerm("2025", "2학기")
+                    )
+                ),
+                onSemesterSelect = { _, _ -> },
+                onRefresh = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+// 상단 에러 안내 뱃지가 표시되는 채플 화면 프리뷰입니다.
+@Preview(name = "Chapel Screen With Error Badge - Light", showBackground = true)
+@Preview(
+    name = "Chapel Screen With Error Badge - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ChapelScreenWithErrorBadgePreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            ChapelSuccessScreen(
+                uiState = ChapelUiState(
+                    isLoading = false,
+                    selectedYear = "2026",
+                    selectedSemester = "1학기",
+                    error = "유세인트 통신 상태가 원활하지 않아 캐시된 데이터를 표시합니다.",
+                    chapelData = DashboardChapelData(
+                        year = "2026",
+                        semester = "1학기",
+                        seat = "C-13-4",
+                        seatDescription = "월 15:00-15:50 (08110-서기태)",
+                        required = 8,
+                        attended = 7,
+                        late = 0,
+                        absent = 1,
+                        remaining = 0,
+                        weeklyAttendances = listOf(
+                            DashboardChapelWeeklyAttendance(1, "2026.03.09", "정규채플", "서기태", "개강예배", "출석"),
+                            DashboardChapelWeeklyAttendance(2, "2026.03.16", "정규채플", "서기태", "비전 채플", "출석")
+                        )
                     ),
                     availableTerms = listOf(
                         DashboardChapelTerm("2026", "1학기"),

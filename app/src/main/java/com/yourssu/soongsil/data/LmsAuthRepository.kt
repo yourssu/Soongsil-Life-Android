@@ -236,7 +236,7 @@ fun Throwable.toUserFriendlyMessage(): String {
     }
 
     return if (isWebDynproBlocked) {
-        "현재 유세인트에서 정보 요청을 거절하고 있어요. 나중에 다시 시도해주세요."
+        "현재 유세인트에서 정보 요청을 거절하고 있어요"
     } else {
         message ?: "데이터를 불러오는 중 오류가 발생했습니다."
     }

@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -228,6 +230,19 @@ private fun GraduationScreenErrorPreview() {
     }
 }
 
+// 상단 에러 안내 뱃지가 표시되는 졸업사정 화면 프리뷰입니다.
+@Composable
+@Preview(name = "에러 뱃지 노출 - Light")
+@Preview(name = "에러 뱃지 노출 - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+private fun GraduationScreenWithErrorBadgePreview() {
+    SoongsilLifeAndroidTheme {
+        GraduationContent(
+            data = previewFailData,
+            errorMessage = "유세인트 통신 상태가 원활하지 않아 캐시된 데이터를 표시합니다."
+        )
+    }
+}
+
 @Composable
 @Preview(name = "과목 상세 펼침 - Light")
 private fun GraduationDetailsPreview() {
@@ -248,37 +263,6 @@ fun GraduationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 에러 발생 시 캐시 데이터가 있으면 화면을 막지 않고 팝업으로 안내합니다.
-    if (uiState.error != null) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = viewModel::dismissError,
-            title = {
-                Text(
-                    text = "안내",
-                    fontFamily = PretendardFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            },
-            text = {
-                Text(
-                    text = uiState.error ?: "졸업사정표를 불러오지 못했습니다.",
-                    fontFamily = PretendardFontFamily,
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = viewModel::dismissError) {
-                    Text(
-                        text = "확인",
-                        fontFamily = PretendardFontFamily,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        )
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.graduationData == null -> {
@@ -297,6 +281,7 @@ fun GraduationScreen(
                 GraduationContent(
                     modifier = Modifier.fillMaxSize(),
                     data = uiState.graduationData ?: GraduationData(),
+                    errorMessage = uiState.error,
                     onBackClick = onBackClick,
                     onDetailClick = onDetailClick
                 )
@@ -352,6 +337,7 @@ private fun GraduationErrorState(
 private fun GraduationContent(
     modifier: Modifier = Modifier,
     data: GraduationData = GraduationData(),
+    errorMessage: String? = null,
     onBackClick: () -> Unit = {},
     onDetailClick: () -> Unit = {},
     initialShowDetails: Boolean = false
@@ -369,6 +355,38 @@ private fun GraduationContent(
             modifier = Modifier.fillMaxSize()
         ) {
             GraduationHeader(onBackClick = onBackClick)
+
+            // 상단 에러 안내 뱃지 (헤더와의 간격을 줄여 자연스럽게 이어지도록 배치)
+            if (errorMessage != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 6.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Info,
+                            contentDescription = "경고",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontFamily = PretendardFontFamily,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
