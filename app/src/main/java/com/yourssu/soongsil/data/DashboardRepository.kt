@@ -16,6 +16,7 @@ import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.data.Lms.ChapelInformation
 import io.github.chlwhdtn03.data.Lms.Semester
 import io.github.chlwhdtn03.data.Lms.SemesterGradeSummaryTable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.supervisorScope
@@ -28,6 +29,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.ExperimentalTime
 
 private val Context.dashboardDataStore by preferencesDataStore(name = "dashboard_cache")
 
@@ -50,11 +52,15 @@ class DashboardRepository @Inject constructor(
         context.dashboardDataStore.edit { it.clear() }
     }
 
+    // LMS API에서 특정 학기의 채플 데이터를 새로 불러옵니다.
     suspend fun getChapelData(
         year: String,
         semester: Semester,
     ): Result<DashboardChapelData> = runCatching {
-        LmsApi.getChapelTable(year, semester).toDashboardChapel()
+        val chapelInformation = kotlinx.coroutines.withContext(Dispatchers.IO) {
+            LmsApi.getChapelTable(year = year, semester = semester)
+        }
+        chapelInformation.toDashboardChapel(defaultYear = year, defaultSemester = semester.nameKor)
     }
 
     suspend fun getAvailableChapelTerms(
@@ -155,6 +161,15 @@ class DashboardRepository @Inject constructor(
         }
     }
 
+    // LMS API에서 조회 가능한 채플 학기 목록을 getTerms()를 기준으로 불러옵니다.
+    @OptIn(ExperimentalTime::class)
+    suspend fun getChapelTerms(): Result<List<DashboardChapelTerm>> = runCatching {
+        val result = getTermsResult()
+        result.terms.mapNotNull { term ->
+            term.name?.let { parseChapelTerm(it) }
+        }.distinct()
+    }
+
     private suspend fun getTerms() = suspendCancellableCoroutine<Unit> { continuation ->
         LmsApi.getTerms { result ->
             if (!continuation.isActive) return@getTerms
@@ -167,6 +182,31 @@ class DashboardRepository @Inject constructor(
                 )
             }
         }
+    }
+
+    // LMS API getTerms 콜백을 코루틴으로 감싸 반환합니다.
+    private suspend fun getTermsResult(): io.github.chlwhdtn03.LmsTermsResult = suspendCancellableCoroutine { continuation ->
+        LmsApi.getTerms { result ->
+            if (!continuation.isActive) return@getTerms
+            if (result.success) {
+                continuation.resume(result)
+            } else {
+                continuation.resumeWithException(
+                    IllegalStateException(result.errorMessage ?: "학기 정보를 불러오지 못했습니다.")
+                )
+            }
+        }
+    }
+
+    // LMS 학기 문자열에서 채플 학기(1학기, 2학기)를 추출합니다.
+    private fun parseChapelTerm(rawSemesterName: String): DashboardChapelTerm? {
+        Regex("""(\d{4})(?:년|-)\s*([12]학기)""")
+            .find(rawSemesterName)?.let { match ->
+                val year = match.groupValues[1]
+                val semester = match.groupValues[2]
+                return DashboardChapelTerm(year = year, semester = semester)
+            }
+        return null
     }
 
     private fun SemesterGradeSummaryTable.calculateOverallGpa(): String {
@@ -263,21 +303,27 @@ class DashboardRepository @Inject constructor(
         return newChapelData
     }
 
-    private fun ChapelInformation.toDashboardChapel(): DashboardChapelData {
+    private fun ChapelInformation.toDashboardChapel(
+        defaultYear: String = year,
+        defaultSemester: String = semester.nameKor
+    ): DashboardChapelData {
         val seatStatus = seatStatusTable.items.firstOrNull()
         val attendance = attendanceTable.items
-        val attended = attendance.count { it.status.trim().startsWith("출석") }
-        val late = attendance.count { it.status.trim().startsWith("지각") }
+        val attended = attendance.count { 
+            val status = it.status.trim()
+            status.contains("출석") && !status.contains("결석") && !status.contains("미출석")
+        }
+        val late = attendance.count { it.status.trim().contains("지각") }
         val absent = attendance.count {
             val status = it.status.trim()
             status.contains("결석") || status.contains("미출석")
         }
         val recorded = attended + late + absent
-        val required = attendance.size
+        val required = attendance.size.coerceAtLeast(recorded)
 
         return DashboardChapelData(
-            year = year,
-            semester = semester.nameKor,
+            year = year.ifBlank { defaultYear },
+            semester = semester.nameKor.ifBlank { defaultSemester },
             seat = seatStatus?.seatNo.orEmpty(),
             seatDescription = listOfNotNull(
                 seatStatus?.classroom?.takeIf { it.isNotBlank() },
@@ -296,8 +342,8 @@ class DashboardRepository @Inject constructor(
                         week = index + 1,
                         date = item.date,
                         lectureType = item.lectureType,
-                        speaker = item.rawValues["강사"].orEmpty(),
-                        title = item.rawValues["제목"].orEmpty(),
+                        speaker = item.rawValues["강사"].orEmpty().ifBlank { item.rawValues["교수"].orEmpty() },
+                        title = item.rawValues["제목"].orEmpty().ifBlank { item.rawValues["강의제목"].orEmpty() },
                         status = item.status,
                     )
                 },

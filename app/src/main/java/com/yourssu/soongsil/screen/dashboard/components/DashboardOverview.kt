@@ -360,6 +360,7 @@ private fun DashboardGpaLineChart(
     }
 }
 
+// 대시보드 화면의 채플 섹션을 표시합니다.
 @Composable
 fun DashboardChapelSection(
     seat: String,
@@ -368,6 +369,7 @@ fun DashboardChapelSection(
     onDetailClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hasChapelData = totalClasses > 0
     val passRequired = (totalClasses - 1).coerceAtLeast(0)
     val remaining = (passRequired - attended).coerceAtLeast(0)
     val progress = if (totalClasses == 0) 0f else attended.toFloat() / totalClasses
@@ -404,80 +406,98 @@ fun DashboardChapelSection(
                 .padding(top = 20.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (remaining == 0) {
-                        Text(
-                            text = "이번 학기 채플은 Pass!",
-                            style = chapelBodyStyle(),
-                            color = Color(0xFF3182F6),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Row {
-                            Text("Pass까지 ", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
-                            Text("${remaining}회", style = chapelBodyStyle(), color = Color(0xFF3182F6), fontWeight = FontWeight.SemiBold)
-                            Text(" 남았어요", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
-                        }
-                    }
-                    Text(
-                        text = "$attended / $totalClasses",
-                        color = Color(0xFF3182F6),
-                        fontFamily = PretendardFontFamily,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                BoxWithConstraints(
+            if (!hasChapelData) {
+                // 채플 상세 데이터가 없는 경우 안내 문구를 표시합니다.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(30.dp)
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Box(
+                    Text(
+                        text = "이번 학기 채플 정보가 없어요",
+                        style = chapelBodyStyle(),
+                        color = SoongsilPalette.Slate400,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (remaining == 0) {
+                            Text(
+                                text = "이번 학기 채플은 Pass!",
+                                style = chapelBodyStyle(),
+                                color = Color(0xFF3182F6),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else {
+                            Row {
+                                Text("Pass까지 ", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
+                                Text("${remaining}회", style = chapelBodyStyle(), color = Color(0xFF3182F6), fontWeight = FontWeight.SemiBold)
+                                Text(" 남았어요", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
+                            }
+                        }
+                        Text(
+                            text = "$attended / $totalClasses",
+                            color = Color(0xFF3182F6),
+                            fontFamily = PretendardFontFamily,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
-                            .background(Color(0xFFC9E2FF), RoundedCornerShape(10.dp))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress.coerceIn(0f, 1f))
-                            .height(8.dp)
-                            .background(Color(0xFF3182F6), RoundedCornerShape(10.dp))
-                    )
-                    if (totalClasses > 0) {
-                        val markerX = maxWidth * passPoint.coerceIn(0f, 1f)
-                        val labelX = (markerX - 42.dp)
-                            .coerceIn(0.dp, (maxWidth - 84.dp).coerceAtLeast(0.dp))
+                            .height(30.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .offset(x = markerX)
-                                .width(1.dp)
-                                .height(12.dp)
-                                .background(Color(0xFF2272EB))
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .background(Color(0xFFC9E2FF), RoundedCornerShape(10.dp))
                         )
-                        Text(
-                            text = "Pass 기준점",
+                        Box(
                             modifier = Modifier
-                                .offset(x = labelX, y = 12.dp)
-                                .width(84.dp),
-                            color = Color(0xFF2272EB),
-                            fontFamily = PretendardFontFamily,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
+                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                .height(8.dp)
+                                .background(Color(0xFF3182F6), RoundedCornerShape(10.dp))
                         )
+                        if (totalClasses > 0) {
+                            val markerX = maxWidth * passPoint.coerceIn(0f, 1f)
+                            val labelX = (markerX - 42.dp)
+                                .coerceIn(0.dp, (maxWidth - 84.dp).coerceAtLeast(0.dp))
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = markerX)
+                                    .width(1.dp)
+                                    .height(12.dp)
+                                    .background(Color(0xFF2272EB))
+                            )
+                            Text(
+                                text = "Pass 기준점",
+                                modifier = Modifier
+                                    .offset(x = labelX, y = 12.dp)
+                                    .width(84.dp),
+                                color = Color(0xFF2272EB),
+                                fontFamily = PretendardFontFamily,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
+
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 20.dp),
                 color = MaterialTheme.colorScheme.outline
@@ -495,9 +515,9 @@ fun DashboardChapelSection(
                 ) {
                     Text("좌석 정보", style = chapelBodyStyle(), color = SoongsilPalette.Slate400)
                     Text(
-                        text = seat,
+                        text = if (hasChapelData && seat.isNotBlank() && seat != "-") seat else "정보 없음",
                         style = chapelBodyStyle(),
-                        color = Color(0xFF3182F6),
+                        color = if (hasChapelData && seat.isNotBlank() && seat != "-") Color(0xFF3182F6) else SoongsilPalette.Slate400,
                         fontWeight = FontWeight.SemiBold
                     )
                 }

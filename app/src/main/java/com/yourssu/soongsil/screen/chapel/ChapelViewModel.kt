@@ -1,5 +1,6 @@
 package com.yourssu.soongsil.screen.chapel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.dashboard.DashboardChapelData
@@ -21,6 +22,8 @@ import javax.inject.Inject
 data class ChapelUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
+    val selectedYear: String = "",
+    val selectedSemester: String = "",
     val chapelData: DashboardChapelData? = null,
     val isSemesterLoading: Boolean = false,
     val semesterError: String? = null,
@@ -44,35 +47,45 @@ class ChapelViewModel @Inject constructor(
     private var hasLoadedAvailableTerms = false
 
     init {
-        loadCachedChapelData()
+        loadInitialData()
     }
 
+    // 채플 데이터를 다시 불러옵니다.
     fun retry() {
-        loadCachedChapelData()
+        loadInitialData()
     }
 
     fun onLoginNavigationHandled() {
         _uiState.update { it.copy(loginRequired = false) }
     }
 
+    // 드롭다운 등에서 학기를 선택했을 때 해당 학기의 채플 데이터를 조회합니다.
+    // @param year 연도 (예: "2026")
+    // @param semesterName 학기명 (예: "1학기", "2학기")
     fun selectSemester(year: String, semesterName: String) {
-        val semester = when (semesterName) {
-            Semester.FIRST.nameKor -> Semester.FIRST
-            Semester.SECOND.nameKor -> Semester.SECOND
+        val semester = when {
+            semesterName.contains("1") -> Semester.FIRST
+            semesterName.contains("2") -> Semester.SECOND
             else -> return
+        }
+
+        val normalizedSemesterName = if (semesterName.contains("1")) "1학기" else "2학기"
+        Log.d("ChapelViewModel", "selectSemester 선택: year=$year, semesterName=$semesterName -> $normalizedSemesterName")
+
+        _uiState.update {
+            it.copy(
+                selectedYear = year,
+                selectedSemester = normalizedSemesterName,
+                isSemesterLoading = true,
+                semesterError = null,
+            )
         }
 
         semesterLoadJob?.cancel()
         semesterLoadJob = viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                it.copy(
-                    isSemesterLoading = true,
-                    semesterError = null,
-                )
-            }
-
             lmsAuthRepository.ensureActiveSession()
                 .onFailure { throwable ->
+                    Log.e("ChapelViewModel", "세션 활성화 실패", throwable)
                     _uiState.update {
                         it.copy(
                             isSemesterLoading = false,
@@ -85,34 +98,41 @@ class ChapelViewModel @Inject constructor(
 
             dashboardRepository.getChapelData(year, semester)
                 .onSuccess { chapelData ->
+                    Log.d("ChapelViewModel", "채플 데이터 로드 성공: $year $normalizedSemesterName, seat=${chapelData.seat}, required=${chapelData.required}, attendances=${chapelData.weeklyAttendances.size}")
                     _uiState.update {
                         it.copy(
-                            chapelData = chapelData,
+                            chapelData = chapelData.copy(
+                                year = year,
+                                semester = normalizedSemesterName
+                            ),
+                            selectedYear = year,
+                            selectedSemester = normalizedSemesterName,
                             isSemesterLoading = false,
                             semesterError = null,
                         )
                     }
                 }
-                .onFailure {
+                .onFailure { throwable ->
+                    Log.e("ChapelViewModel", "채플 데이터 로드 실패: $year $normalizedSemesterName", throwable)
                     _uiState.update {
                         it.copy(
+                            chapelData = DashboardChapelData(
+                                year = year,
+                                semester = normalizedSemesterName,
+                            ),
+                            selectedYear = year,
+                            selectedSemester = normalizedSemesterName,
                             isSemesterLoading = false,
-                            semesterError = "선택한 학기의 채플 정보를 불러올 수 없습니다.",
+                            semesterError = null,
                         )
                     }
                 }
         }
     }
 
+    // LMS getTerms()를 기반으로 선택 가능한 채플 학기 목록을 불러옵니다.
     fun loadAvailableChapelTerms() {
         if (hasLoadedAvailableTerms || _uiState.value.isTermsLoading) return
-
-        if (studentId.isBlank()) {
-            _uiState.update {
-                it.copy(termsError = "로그인한 사용자의 학번 정보를 확인할 수 없습니다.")
-            }
-            return
-        }
 
         termsLoadJob?.cancel()
         termsLoadJob = viewModelScope.launch(Dispatchers.IO) {
@@ -135,43 +155,35 @@ class ChapelViewModel @Inject constructor(
                     return@launch
                 }
 
-            dashboardRepository.getAvailableChapelTerms(studentId) { term ->
-                _uiState.update { state ->
-                    state.copy(
-                        availableTerms = (state.availableTerms + term)
-                            .distinct()
-                            .sortedWith(
-                                compareByDescending<DashboardChapelTerm> { it.year }
-                                    .thenByDescending { it.semester },
-                            ),
-                    )
+            dashboardRepository.getChapelTerms()
+                .onSuccess { terms ->
+                    hasLoadedAvailableTerms = true
+                    _uiState.update { state ->
+                        state.copy(
+                            availableTerms = (state.availableTerms + terms)
+                                .distinct()
+                                .sortedWith(
+                                    compareByDescending<DashboardChapelTerm> { it.year }
+                                        .thenByDescending { it.semester },
+                                ),
+                            isTermsLoading = false,
+                            termsError = null,
+                        )
+                    }
                 }
-            }.onSuccess { terms ->
-                hasLoadedAvailableTerms = true
-                _uiState.update { state ->
-                    state.copy(
-                        availableTerms = (state.availableTerms + terms)
-                            .distinct()
-                            .sortedWith(
-                                compareByDescending<DashboardChapelTerm> { it.year }
-                                    .thenByDescending { it.semester },
-                            ),
-                        isTermsLoading = false,
-                        termsError = null,
-                    )
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            isTermsLoading = false,
+                            termsError = "조회할 수 있는 채플 학기를 불러오지 못했습니다.",
+                        )
+                    }
                 }
-            }.onFailure {
-                _uiState.update {
-                    it.copy(
-                        isTermsLoading = false,
-                        termsError = "조회할 수 있는 채플 학기를 불러오지 못했습니다.",
-                    )
-                }
-            }
         }
     }
 
-    private fun loadCachedChapelData() {
+    // 초기 진입 시 캐시된 채플 데이터를 불러오고 학기 목록을 함께 로드합니다.
+    private fun loadInitialData() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update {
                 it.copy(
@@ -183,35 +195,32 @@ class ChapelViewModel @Inject constructor(
             val dashboardData = dashboardRepository.getCachedData()
             val chapelData = dashboardData?.chapel
             studentId = dashboardData?.studentId.orEmpty()
+            val initialYear = chapelData?.year.orEmpty()
+            val initialSemester = chapelData?.semester.orEmpty()
 
-            if (chapelData != null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = null,
-                        chapelData = chapelData,
-                        availableTerms = chapelData
-                            .takeIf { it.year.isNotBlank() && it.semester.isNotBlank() }
-                            ?.let {
-                                listOf(
-                                    DashboardChapelTerm(
-                                        year = it.year,
-                                        semester = it.semester,
-                                    ),
-                                )
-                            }
-                            .orEmpty(),
-                    )
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "저장된 채플 정보를 불러올 수 없습니다.",
-                        chapelData = null,
-                    )
-                }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = null,
+                    selectedYear = initialYear,
+                    selectedSemester = initialSemester,
+                    chapelData = chapelData ?: DashboardChapelData(),
+                    availableTerms = chapelData
+                        ?.takeIf { it.year.isNotBlank() && it.semester.isNotBlank() }
+                        ?.let {
+                            listOf(
+                                DashboardChapelTerm(
+                                    year = it.year,
+                                    semester = it.semester,
+                                ),
+                            )
+                        }
+                        .orEmpty(),
+                )
             }
+
+            loadAvailableChapelTerms()
         }
     }
 }
+
