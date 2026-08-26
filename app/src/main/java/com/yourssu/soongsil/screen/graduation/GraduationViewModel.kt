@@ -27,6 +27,7 @@ class GraduationViewModel @Inject constructor(
 
     data class GraduationUiState(
         val isLoading: Boolean = true,
+        val isRefreshing: Boolean = false,
         val error: String? = null,
         val graduationData: GraduationData? = null,
         val loginRequired: Boolean = false
@@ -38,6 +39,43 @@ class GraduationViewModel @Inject constructor(
 
     fun retry() {
         loadGraduationData()
+    }
+
+    // 당겨서 새로고침(Pull to Refresh) 시 최신 졸업사정표 데이터를 불러옵니다.
+    fun refresh() {
+        _uiState.update { it.copy(isRefreshing = true, error = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            lmsAuthRepository.ensureActiveSession()
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            error = throwable.toUserFriendlyMessage(),
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
+                    }
+                    return@launch
+                }
+
+            graduationRepository.getGraduationData()
+                .onSuccess { graduationData ->
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            error = null,
+                            graduationData = graduationData
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            error = throwable.toUserFriendlyMessage()
+                        )
+                    }
+                }
+        }
     }
 
     fun onLoginNavigationHandled() {
