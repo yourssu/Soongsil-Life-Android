@@ -1,4 +1,4 @@
-﻿package com.yourssu.soongsil
+package com.yourssu.soongsil
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -299,6 +299,8 @@ class MainActivity : ComponentActivity() {
                                 chapelSeat = dashboardData?.chapel?.seat.orEmpty(),
                                 chapelRequired = dashboardData?.chapel?.required ?: 0,
                                 chapelAttended = dashboardData?.chapel?.attended ?: 0,
+                                chapelYear = dashboardData?.chapel?.year.orEmpty(),
+                                chapelSemester = dashboardData?.chapel?.semester.orEmpty(),
                                 isGradeBlurred = !isDashboardGradeRevealed,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,

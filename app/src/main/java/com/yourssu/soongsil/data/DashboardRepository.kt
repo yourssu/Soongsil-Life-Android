@@ -77,6 +77,27 @@ class DashboardRepository @Inject constructor(
         context.chapelDataStore.edit { it.clear() }
     }
 
+    // LMS API에서 최신(이번 학기) 채플 데이터만 단독으로 새로 불러오고 대시보드 캐시를 동기화합니다.
+    suspend fun getLatestChapelData(): Result<DashboardChapelData> = runCatching {
+        val chapelInformation = kotlinx.coroutines.withContext(Dispatchers.IO) {
+            LmsApi.getChapelTable()
+        }
+        val chapel = chapelInformation.toAvailableChapelData()
+
+        // 대시보드 캐시 내의 채플 데이터도 함께 동기화합니다.
+        context.dashboardDataStore.edit { preferences ->
+            val existingJson = preferences[dashboardDataKey]
+            if (existingJson != null) {
+                runCatching {
+                    val currentData = json.decodeFromString<DashboardData>(existingJson)
+                    val updatedData = currentData.copy(chapel = chapel)
+                    preferences[dashboardDataKey] = json.encodeToString(updatedData)
+                }
+            }
+        }
+        chapel
+    }
+
     // LMS API에서 특정 학기의 채플 데이터를 새로 불러옵니다.
     suspend fun getChapelData(
         year: String,

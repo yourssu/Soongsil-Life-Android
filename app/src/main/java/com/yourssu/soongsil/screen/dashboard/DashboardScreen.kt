@@ -67,6 +67,8 @@ private fun DashboardScreenPreview() {
             chapelSeat = "A-1-2",
             chapelRequired = 8,
             chapelAttended = 3,
+            chapelYear = "2026",
+            chapelSemester = "1학기",
             isGradeBlurred = false
         )
     }
@@ -88,9 +90,32 @@ private fun DashboardGradeBlurPreview() {
                 DashboardSemesterGrade("3-1", "3.31"),
                 DashboardSemesterGrade("4-1", "3.52")
             ),
+            chapelYear = "2026",
+            chapelSemester = "1학기",
             isGradeBlurred = true,
             refreshStatus = DashboardRefreshStatus.LOADING,
             refreshStep = DashboardRefreshStep.TWO_COMPLETED
+        )
+    }
+}
+
+// 채플 정보가 없는 경우의 대시보드 프리뷰입니다.
+@Composable
+@Preview(name = "대시보드 채플 없음 - Light")
+@Preview(name = "대시보드 채플 없음 - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+private fun DashboardScreenNoChapelPreview() {
+    SoongsilLifeAndroidTheme {
+        DashboardScreen(
+            gpa = "4.06",
+            earnedCredits = "104",
+            semesterRank = "21/102",
+            totalRank = "37/121",
+            chapelYear = "2026",
+            chapelSemester = "1학기",
+            chapelSeat = "",
+            chapelRequired = 0,
+            chapelAttended = 0,
+            isGradeBlurred = false
         )
     }
 }
@@ -109,6 +134,8 @@ fun DashboardScreen(
     chapelSeat: String = "",
     chapelRequired: Int = 0,
     chapelAttended: Int = 0,
+    chapelYear: String = "",
+    chapelSemester: String = "",
     isGradeBlurred: Boolean = true,
     refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.HIDDEN,
     refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
@@ -240,6 +267,8 @@ fun DashboardScreen(
                         seat = chapelSeat.ifBlank { "-" },
                         totalClasses = chapelRequired,
                         attended = chapelAttended,
+                        year = chapelYear,
+                        semester = chapelSemester,
                         onDetailClick = onChapelClick,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
                     )
