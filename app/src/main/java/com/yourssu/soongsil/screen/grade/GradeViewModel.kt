@@ -1,6 +1,5 @@
 package com.yourssu.soongsil.screen.grade
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.grade.GradeData
@@ -33,7 +32,10 @@ data class SemesterGradeUiData(
     val gpa: String = "-",
     val credits: String = "-",
     val courseCount: String = "-",
-    val rank: String = "-"
+    val rank: String = "-",
+    val totalRank: String = "-",
+    val earnedCredits: String = "-",
+    val attemptedCredits: String = "-"
 )
 
 data class GradeUiState(
@@ -303,7 +305,10 @@ class GradeViewModel @Inject constructor(
             ?.toUiData(data.summaries[selectedSemester.cacheKey])
             ?: SemesterGradeUiData(
                 gpa = data.summaries[selectedSemester?.cacheKey]?.gpa ?: "-",
-                rank = data.summaries[selectedSemester?.cacheKey]?.rank ?: "-"
+                rank = data.summaries[selectedSemester?.cacheKey]?.rank ?: "-",
+                totalRank = data.summaries[selectedSemester?.cacheKey]?.totalRank ?: "-",
+                earnedCredits = data.summaries[selectedSemester?.cacheKey]?.earnedCredits ?: "-",
+                attemptedCredits = data.summaries[selectedSemester?.cacheKey]?.attemptedCredits ?: "-"
             )
 
         _uiState.update {
@@ -311,7 +316,7 @@ class GradeViewModel @Inject constructor(
                 semesterGradeData = selectedGradeData,
                 semesters = semesters,
                 selectedSemesterIndex = validSelectedIndex,
-                gpaPoints = data.toGpaPoints()
+                gpaPoints = data.toGpaPoints(selectedSemester?.cacheKey)
             )
         }
     }
@@ -334,10 +339,13 @@ class GradeViewModel @Inject constructor(
 
         return SemesterGradeUiData(
             courses = courses,
-            gpa = summary?.gpa ?: "-",
-            credits = credits,
+            gpa = summary?.gpa ?: gpa,
+            credits = if (credits != "-") credits else summary?.earnedCredits ?: "-",
             courseCount = courseCount,
-            rank = summary?.rank ?: "-"
+            rank = summary?.rank ?: rank,
+            totalRank = summary?.totalRank ?: "-",
+            earnedCredits = summary?.earnedCredits ?: credits,
+            attemptedCredits = summary?.attemptedCredits ?: "-"
         )
     }
 
@@ -351,7 +359,7 @@ class GradeViewModel @Inject constructor(
         )
 
     // 성적 요약 데이터를 평점 추이 차트용 데이터로 변환합니다.
-    private fun GradeData.toGpaPoints(): List<GpaPoint> {
+    private fun GradeData.toGpaPoints(selectedSemesterKey: com.yourssu.data.grade.SemesterKey?): List<GpaPoint> {
         val points = semesters
             .filter { semester -> grades[semester.cacheKey]?.courses?.isNotEmpty() == true } // 과목이 있는 학기만 차트에 표시
             .sortedWith(compareBy({ it.year }, { Semester.valueOf(it.semesterName).ordinal }))
@@ -359,12 +367,11 @@ class GradeViewModel @Inject constructor(
                 val summary = summaries[semester.cacheKey] ?: return@mapNotNull null
                 GpaPoint(
                     semester = semester.label,
-                    gpa = summary.gpa.toFloatOrNull() ?: 0f
+                    gpa = summary.gpa.toFloatOrNull() ?: 0f,
+                    isCurrent = semester.cacheKey == selectedSemesterKey
                 )
             }
 
-        return points.mapIndexed { index, point ->
-            point.copy(isCurrent = index == points.lastIndex)
-        }
+        return points
     }
 }

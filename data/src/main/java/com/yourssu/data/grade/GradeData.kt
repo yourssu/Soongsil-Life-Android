@@ -26,7 +26,10 @@ data class SemesterKey(
 @Serializable
 data class GradeSemesterSummary(
     val gpa: String = "-",
-    val rank: String = "-"
+    val rank: String = "-",
+    val totalRank: String = "-",
+    val earnedCredits: String = "-",
+    val attemptedCredits: String = "-"
 )
 
 @Serializable

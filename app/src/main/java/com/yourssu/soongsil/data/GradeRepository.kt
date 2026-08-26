@@ -79,7 +79,10 @@ class GradeRepository @Inject constructor(
                 val semester = summary.semester ?: return@mapNotNull null
                 buildCacheKey(year = summary.year, semester = semester) to GradeSemesterSummary(
                     gpa = summary.gpa,
-                    rank = summary.semesterRank
+                    rank = summary.semesterRank,
+                    totalRank = summary.totalRank,
+                    earnedCredits = summary.earnedCredits,
+                    attemptedCredits = summary.attemptedCredits
                 )
             }
             .toMap()
@@ -130,9 +133,9 @@ class GradeRepository @Inject constructor(
             }
         }
     }
-    // 연도와 학기명을 화면에서 사용하는 학기 라벨로 변환합니다.
+    // 연도와 학기명을 화면 탭에서 사용하는 학기 라벨("2024년 1학기")로 변환합니다.
     private fun buildSemesterLabel(year: String, semester: String): String {
-       return "${year}-${semester.removeSuffix("학기")}"
+       return "${year}년 ${semester}"
     }
 
     // LMS 학기 문자열을 성적 학기 데이터로 변환합니다.
