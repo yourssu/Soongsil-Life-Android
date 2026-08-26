@@ -1,5 +1,6 @@
 package com.yourssu.soongsil.screen.grade
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourssu.data.grade.GradeData
@@ -54,30 +55,44 @@ class GradeViewModel @Inject constructor(
     private val gradeRepository: GradeRepository,
     private val lmsAuthRepository: LmsAuthRepository
 ) : ViewModel() {
+    private companion object {
+        const val REFRESH_SUCCESS_DURATION_MILLIS = 1_000L
+
+        // 앱 프로세스에서 성적 상세 자동 갱신 팝업을 이미 보여줬는지 기억합니다.
+        var hasShownAutoRefreshPopupInProcess = false
+    }
+
     private val _uiState = MutableStateFlow(GradeUiState())
     val uiState = _uiState.asStateFlow()
     private var currentGradeData: GradeData = GradeData()
+    private var isGradeRefreshing = false
+    private var showRefreshPopup = true
 
     init {
-        loadGradeOverview()
+        val showPopup = !hasShownAutoRefreshPopupInProcess
+        hasShownAutoRefreshPopupInProcess = true
+        loadGradeOverview(showPopup = showPopup)
     }
 
     // 성적 개요와 학기별 상세 성적을 불러옵니다.
-    fun loadGradeOverview() {
-        if (_uiState.value.refreshStatus == GradeRefreshStatus.LOADING) return
+    fun loadGradeOverview(showPopup: Boolean = true) {
+        if (isGradeRefreshing) return
+        isGradeRefreshing = true
+        showRefreshPopup = showPopup
 
         viewModelScope.launch {
-            updateRefreshLoading(
-                message = "성적 학기 정보를 확인하는 중",
-                currentStep = null,
-                totalStep = null
-            )
+            try {
+                updateRefreshLoading(
+                    message = "성적 학기 정보를 확인하는 중",
+                    currentStep = null,
+                    totalStep = null
+                )
 
-            val cachedData = gradeRepository.getCachedData()
-            val isFirstSemesterGradeLoad = cachedData?.grades.isNullOrEmpty()
-            cachedData?.let { gradeData ->
-                updateGradeState(gradeData)
-            }
+                val cachedData = gradeRepository.getCachedData()
+                val isFirstSemesterGradeLoad = cachedData?.grades.isNullOrEmpty()
+                cachedData?.let { gradeData ->
+                    updateGradeState(gradeData)
+                }
 
             lmsAuthRepository.ensureActiveSession()
                 .onFailure { throwable ->
@@ -103,6 +118,9 @@ class GradeViewModel @Inject constructor(
                     updateRefreshError(throwable.toUserFriendlyMessage())
                     hideRefreshPopupAfterDelay()
                 }
+            } finally {
+                isGradeRefreshing = false
+            }
         }
     }
 
@@ -190,6 +208,8 @@ class GradeViewModel @Inject constructor(
         currentStep: Int?,
         totalStep: Int?
     ) {
+        if (!showRefreshPopup) return
+
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.LOADING,
@@ -203,6 +223,8 @@ class GradeViewModel @Inject constructor(
 
     // 성적 갱신 성공 팝업 상태를 갱신합니다.
     private fun updateRefreshSuccess(message: String) {
+        if (!showRefreshPopup) return
+
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.SUCCESS,
@@ -216,6 +238,8 @@ class GradeViewModel @Inject constructor(
 
     // 성적 갱신 실패 팝업 상태를 갱신합니다.
     private fun updateRefreshError(message: String?) {
+        if (!showRefreshPopup) return
+
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.ERROR,
@@ -228,6 +252,8 @@ class GradeViewModel @Inject constructor(
 
     // 성공 팝업을 잠시 표시한 뒤 숨깁니다.
     private suspend fun hideRefreshPopupAfterDelay() {
+        if (!showRefreshPopup) return
+
         delay(REFRESH_SUCCESS_DURATION_MILLIS)
         _uiState.update {
             if (it.refreshStatus == GradeRefreshStatus.SUCCESS || it.refreshStatus == GradeRefreshStatus.ERROR) {
@@ -244,14 +270,33 @@ class GradeViewModel @Inject constructor(
         selectedIndex: Int = _uiState.value.selectedSemesterIndex
     ) {
         currentGradeData = data
+
+        // 과목 수가 1개 이상인 학기만 화면에 노출합니다.
+        val visibleSemesters = data.semesters.filter { semester ->
+            val gradeData = data.grades[semester.cacheKey]
+            gradeData != null && gradeData.courses.isNotEmpty()
+        }
+
+        if (visibleSemesters.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    semesterGradeData = SemesterGradeUiData(),
+                    semesters = emptyList(),
+                    selectedSemesterIndex = 0,
+                    gpaPoints = emptyList()
+                )
+            }
+            return
+        }
+
         val validSelectedIndex = selectedIndex
             .coerceAtLeast(0)
-            .coerceAtMost(data.semesters.lastIndex)
+            .coerceAtMost(visibleSemesters.lastIndex)
 
-        val semesters = data.semesters.mapIndexed { index, semester ->
+        val semesters = visibleSemesters.mapIndexed { index, semester ->
             semester.toSemesterTab(isActive = index == validSelectedIndex)
         }
-        val selectedSemester = data.semesters.getOrNull(validSelectedIndex)
+        val selectedSemester = visibleSemesters.getOrNull(validSelectedIndex)
 
         val selectedGradeData = selectedSemester
             ?.let { data.grades[it.cacheKey] }
@@ -308,6 +353,7 @@ class GradeViewModel @Inject constructor(
     // 성적 요약 데이터를 평점 추이 차트용 데이터로 변환합니다.
     private fun GradeData.toGpaPoints(): List<GpaPoint> {
         val points = semesters
+            .filter { semester -> grades[semester.cacheKey]?.courses?.isNotEmpty() == true } // 과목이 있는 학기만 차트에 표시
             .sortedWith(compareBy({ it.year }, { Semester.valueOf(it.semesterName).ordinal }))
             .mapNotNull { semester ->
                 val summary = summaries[semester.cacheKey] ?: return@mapNotNull null
@@ -320,9 +366,5 @@ class GradeViewModel @Inject constructor(
         return points.mapIndexed { index, point ->
             point.copy(isCurrent = index == points.lastIndex)
         }
-    }
-
-    private companion object {
-        const val REFRESH_SUCCESS_DURATION_MILLIS = 750L
     }
 }
