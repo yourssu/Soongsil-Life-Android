@@ -302,6 +302,7 @@ class MainActivity : ComponentActivity() {
                                 chapelYear = dashboardData?.chapel?.year.orEmpty(),
                                 chapelSemester = dashboardData?.chapel?.semester.orEmpty(),
                                 isGradeBlurred = !isDashboardGradeRevealed,
+                                advertisement = uiState.advertisement,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
                                 isPullRefreshing = uiState.isPullRefreshing,
@@ -315,7 +316,13 @@ class MainActivity : ComponentActivity() {
                                 onGradeDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },
-                                onScholarshipClick = { navController.navigate(Scholarship) }
+                                onScholarshipClick = { navController.navigate(Scholarship) },
+                                onAdvertisementClick = { link ->
+                                    runCatching {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
+                                        this@MainActivity.startActivity(intent)
+                                    }
+                                }
                             )
                         }
                         composable<Grade> {
@@ -494,7 +501,8 @@ class MainActivity : ComponentActivity() {
                                 uiState = uiState,
                                 onRetry = viewModel::retry,
                                 onCourseClick = viewModel::selectCourse,
-                                onDismissCourseDetail = viewModel::dismissCourseDetail
+                                onDismissCourseDetail = viewModel::dismissCourseDetail,
+                                onSelectTerm = viewModel::selectTerm
                             )
                         }
                         composable<PushNotifications> {

@@ -76,10 +76,12 @@ class TimetableViewModel @Inject constructor(
         loadTimetable(term = currentTerm(), forceReload = true)
     }
 
+    // 학기를 선택하여 해당 학기의 시간표를 불러옵니다.
     fun selectTerm(year: String, semester: TimetableSemester) {
+        val normalizedTargetYear = year.toAcademicYearText()
         val selectedTerm = _uiState.value.availableTerms.firstOrNull {
-            it.year == year.toAcademicYearText() && it.semester == semester
-        } ?: return
+            it.year.toAcademicYearText() == normalizedTargetYear && it.semester == semester
+        } ?: TimetableTerm(year = normalizedTargetYear, semester = semester)
 
         loadTimetable(term = selectedTerm, forceReload = false)
     }
@@ -343,5 +345,5 @@ private fun String.toAcademicYearText(): String {
 }
 
 private fun TimetableTerm.hasSameSelection(other: TimetableTerm): Boolean {
-    return year == other.year && semester == other.semester
+    return year.toAcademicYearText() == other.year.toAcademicYearText() && semester == other.semester
 }

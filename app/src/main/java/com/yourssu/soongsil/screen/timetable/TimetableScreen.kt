@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,10 +35,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -256,6 +259,17 @@ fun TimetableScreen(
                         isTermSelectionVisible = true
                     }
                 )
+
+                // 학기 로드 중 또는 시간표 로드 중일 때 표시되는 인라인 프로그레스바
+                if (uiState.isLoading || uiState.isLoadingTerms) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp),
+                        color = Color(0xFF3182F6),
+                        trackColor = Color(0xFFC9E2FF)
+                    )
+                }
 
                 // 상단 에러 안내 뱃지
                 if (activeError != null) {
@@ -943,9 +957,11 @@ private fun TimetableTermSelectionBottomSheet(
     onApply: () -> Unit
 ) {
     val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { TimetableBottomSheetDragHandle() }
@@ -953,38 +969,47 @@ private fun TimetableTermSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp + navigationBarBottomPadding),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp + navigationBarBottomPadding)
         ) {
             Text(
                 text = "학기 선택",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            when {
-                isLoading -> TimetableTermSelectionLoadingState()
-                errorMessage != null -> TimetableTermSelectionUnavailableState(
-                    message = errorMessage,
-                    onRetry = onRetry
-                )
-                availableTerms.isEmpty() -> TimetableTermSelectionUnavailableState(
-                    message = "수강 학기 정보를 불러오지 못했습니다.",
-                    onRetry = onRetry
-                )
-                else -> TimetableTermSection(title = "조회 가능한 학기") {
-                    availableTerms.forEach { term ->
-                        TimetableTermOption(
-                            text = buildSemesterText(year = term.year, semester = term.semester.label),
-                            isSelected = term == selectedTerm,
-                            onClick = { onTermSelected(term) }
-                        )
+            // 조회 가능한 학기 목록 스크롤 영역 (하단 적용 버튼이 가려지지 않도록 weight 분리)
+            Box(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                when {
+                    isLoading -> TimetableTermSelectionLoadingState()
+                    errorMessage != null -> TimetableTermSelectionUnavailableState(
+                        message = errorMessage,
+                        onRetry = onRetry
+                    )
+                    availableTerms.isEmpty() -> TimetableTermSelectionUnavailableState(
+                        message = "수강 학기 정보를 불러오지 못했습니다.",
+                        onRetry = onRetry
+                    )
+                    else -> TimetableTermSection(title = "조회 가능한 학기") {
+                        availableTerms.forEach { term ->
+                            TimetableTermOption(
+                                text = buildSemesterText(year = term.year, semester = term.semester.label),
+                                isSelected = term == selectedTerm,
+                                onClick = { onTermSelected(term) }
+                            )
+                        }
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 하단 고정 취소 / 적용 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1759,7 +1784,7 @@ private fun TimetableNoTermsPreview() {
 }
 
 @Preview(name = "Timetable Term Sheet", showBackground = true, widthDp = 402)
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
+@Preview(name = "Timetable Term Sheet - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
 @Composable
 private fun TimetableTermSelectionBottomSheetPreview() {
     SoongsilLifeAndroidTheme {
@@ -1772,6 +1797,29 @@ private fun TimetableTermSelectionBottomSheetPreview() {
             onRetry = {},
             onDismiss = {},
             onApply = {}
+        )
+    }
+}
+
+@Preview(name = "시간표 로딩 인디케이터 - Light", showBackground = true, widthDp = 402)
+@Preview(name = "시간표 로딩 인디케이터 - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 402)
+@Composable
+private fun TimetableLoadingIndicatorPreview() {
+    SoongsilLifeAndroidTheme {
+        TimetableScreen(
+            uiState = TimetableViewModel.TimetableUiState(
+                isLoading = true,
+                year = "2026학년도",
+                semester = "1학기",
+                availableTerms = previewAvailableTerms,
+                selectedYear = "2026",
+                selectedSemester = TimetableSemester.FIRST,
+                courses = previewTenCourses
+            ),
+            onRetry = {},
+            onCourseClick = {},
+            onDismissCourseDetail = {},
+            onSelectTerm = { _, _ -> }
         )
     }
 }

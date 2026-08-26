@@ -33,8 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yourssu.data.dashboard.AdvertisementData
 import com.yourssu.data.dashboard.DashboardRefreshStep
 import com.yourssu.data.dashboard.DashboardSemesterGrade
+import com.yourssu.soongsil.screen.dashboard.components.AdvertisementBanner
 import com.yourssu.soongsil.screen.dashboard.components.DashboardChapelSection
 import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeDetailButton
 import com.yourssu.soongsil.screen.dashboard.components.DashboardGradeSection
@@ -45,8 +47,8 @@ import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 
 @Composable
-@Preview(name = "대시보드 - Light")
-@Preview(name = "대시보드 - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "대시보드 전체 (광고 포함) - Light", showBackground = true)
+@Preview(name = "대시보드 전체 (광고 포함) - Dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 private fun DashboardScreenPreview() {
     SoongsilLifeAndroidTheme {
         DashboardScreen(
@@ -69,7 +71,12 @@ private fun DashboardScreenPreview() {
             chapelAttended = 3,
             chapelYear = "2026",
             chapelSemester = "1학기",
-            isGradeBlurred = false
+            isGradeBlurred = false,
+            advertisement = AdvertisementData(
+                imageUrl = "https://example.com/banner.png",
+                link = "https://example.com",
+                success = true
+            )
         )
     }
 }
@@ -137,6 +144,7 @@ fun DashboardScreen(
     chapelYear: String = "",
     chapelSemester: String = "",
     isGradeBlurred: Boolean = true,
+    advertisement: AdvertisementData? = null,
     refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.HIDDEN,
     refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
     isPullRefreshing: Boolean = false,
@@ -146,7 +154,8 @@ fun DashboardScreen(
     onGradeDetailClick: () -> Unit = {},
     onChapelClick: () -> Unit = {},
     onGraduateClick: () -> Unit = {},
-    onScholarshipClick: () -> Unit = {}
+    onScholarshipClick: () -> Unit = {},
+    onAdvertisementClick: (String) -> Unit = {}
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
     val bottomBarPadding = LocalMainBottomBarPadding.current
@@ -278,6 +287,15 @@ fun DashboardScreen(
                         onScholarshipClick = onScholarshipClick,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
                     )
+
+                    // 인앱 홍보 광고 배너
+                    advertisement?.takeIf { it.success && it.imageUrl.isNotBlank() }?.let { ad ->
+                        AdvertisementBanner(
+                            imageUrl = ad.imageUrl,
+                            onClick = { onAdvertisementClick(ad.link) },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp + bottomBarPadding))
                 }
