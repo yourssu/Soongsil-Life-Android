@@ -221,6 +221,22 @@ fun Throwable.isLmsLoginRequired(): Boolean =
 // LMS API 및 네트워크 예외를 사용자 친화적인 메시지로 변환합니다.
 fun Throwable.toUserFriendlyMessage(): String {
     val causes = generateSequence(this) { it.cause }
+
+    // 인터넷 미연결 또는 네트워크 통신 불가 예외 여부를 확인합니다.
+    val isNetworkError = causes.any { cause ->
+        cause is java.net.UnknownHostException ||
+                cause is java.net.ConnectException ||
+                cause is java.net.SocketTimeoutException ||
+                cause is java.net.SocketException ||
+                cause.message?.contains("Unable to resolve host", ignoreCase = true) == true ||
+                cause.message?.contains("Failed to connect", ignoreCase = true) == true ||
+                cause.message?.contains("Network is unreachable", ignoreCase = true) == true
+    }
+
+    if (isNetworkError) {
+        return "인터넷에 연결되어 있지 않아 데이터를 불러올 수 없습니다."
+    }
+
     val isWebDynproBlocked = causes.any { cause ->
         val msg = cause.message.orEmpty()
         val name = cause.javaClass.simpleName
@@ -241,3 +257,4 @@ fun Throwable.toUserFriendlyMessage(): String {
         message ?: "데이터를 불러오는 중 오류가 발생했습니다."
     }
 }
+

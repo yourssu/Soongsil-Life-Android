@@ -62,7 +62,7 @@ fun OnBoardingCompleteScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "장학금, 수강신청, 성적 발표까지\n유세인트에서 너무 쉽게.",
+                text = "장학금, 수강신청, 성적 정보를 한 곳에서",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center

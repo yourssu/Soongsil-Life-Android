@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -86,6 +87,7 @@ private fun GradeDetailContent(
     val semesterGradeData = uiState.semesterGradeData
     val pullToRefreshState = rememberPullToRefreshState()
     val isPullRefreshing = uiState.refreshStatus == GradeRefreshStatus.LOADING
+    val isInitialLoading = uiState.isLoading || (isPullRefreshing && uiState.semesters.isEmpty())
     val isDark = isSystemInDarkTheme()
     val dividerColor = if (isDark) Color(0xFF1E2024) else Color(0xFFF2F4F6)
 
@@ -142,77 +144,110 @@ private fun GradeDetailContent(
                 }
             }
 
-            PullToRefreshBox(
-                isRefreshing = isPullRefreshing,
-                onRefresh = onRefresh,
-                state = pullToRefreshState,
-                indicator = {
-                    if (!isPullRefreshing) {
-                        PullToRefreshDefaults.Indicator(
-                            state = pullToRefreshState,
-                            isRefreshing = false,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        bottom = 20.dp + bottomBarPadding
-                    )
+            if (isInitialLoading) {
+                // 최초 진입 시 캐시된 데이터가 없을 때 중앙 로딩 뷰를 표시합니다.
+                GradeDetailLoadingState(modifier = Modifier.weight(1f))
+            } else {
+                PullToRefreshBox(
+                    isRefreshing = isPullRefreshing,
+                    onRefresh = onRefresh,
+                    state = pullToRefreshState,
+                    indicator = {
+                        if (!isPullRefreshing) {
+                            PullToRefreshDefaults.Indicator(
+                                state = pullToRefreshState,
+                                isRefreshing = false,
+                                modifier = Modifier.align(Alignment.TopCenter)
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    // 상단 학기 탭 목록
-                    item {
-                        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                            SemesterTabs(
-                                tabs = uiState.semesters,
-                                onTabClick = onTabClick
-                            )
-                        }
-                    }
-
-                    // 평점 평균 및 요약 (취득 학점, 학기별 석차, 전체 석차)
-                    item {
-                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            GpaDetailCard(
-                                gpa = semesterGradeData.gpa,
-                                maxGpa = "4.50",
-                                credits = semesterGradeData.credits,
-                                semesterRank = semesterGradeData.rank,
-                                totalRank = semesterGradeData.totalRank
-                            )
-                        }
-                    }
-
-                    // 성적 추이 차트
-                    if (uiState.gpaPoints.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            bottom = 20.dp + bottomBarPadding
+                        )
+                    ) {
+                        // 상단 학기 탭 목록
                         item {
-                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                GpaTrendChart(points = uiState.gpaPoints)
+                            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                                SemesterTabs(
+                                    tabs = uiState.semesters,
+                                    onTabClick = onTabClick
+                                )
                             }
                         }
-                    }
 
-                    // 차트와 과목 리스트 사이 구분선
-                    item {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        HorizontalDivider(
-                            thickness = 8.dp,
-                            color = dividerColor
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
+                        // 평점 평균 및 요약 (취득 학점, 학기별 석차, 전체 석차)
+                        item {
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                GpaDetailCard(
+                                    gpa = semesterGradeData.gpa,
+                                    maxGpa = "4.50",
+                                    credits = semesterGradeData.credits,
+                                    semesterRank = semesterGradeData.rank,
+                                    totalRank = semesterGradeData.totalRank
+                                )
+                            }
+                        }
 
-                    // 과목별 상세 성적 리스트
-                    items(semesterGradeData.courses) { course ->
-                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            CourseDetailCard(course = course)
+                        // 성적 추이 차트
+                        if (uiState.gpaPoints.isNotEmpty()) {
+                            item {
+                                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                    GpaTrendChart(points = uiState.gpaPoints)
+                                }
+                            }
+                        }
+
+                        // 차트와 과목 리스트 사이 구분선
+                        item {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(
+                                thickness = 8.dp,
+                                color = dividerColor
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        // 과목별 상세 성적 리스트
+                        items(semesterGradeData.courses) { course ->
+                            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                CourseDetailCard(course = course)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+// 최초 성적 조회 시 화면 중앙에 표시되는 로딩 컴포넌트입니다.
+// @param modifier 컴포저블에 적용할 Modifier입니다.
+@Composable
+private fun GradeDetailLoadingState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                text = "성적 정보를 불러오는 중입니다...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = PretendardFontFamily,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -293,6 +328,23 @@ private fun GradeDetailScreenLoadingPreview() {
                     refreshMessage = "2024년 1학기 성적 확인 중 (2/5)",
                     refreshCurrentStep = 2,
                     refreshTotalStep = 5
+                )
+            )
+        }
+    }
+}
+
+@Preview(name = "성적 화면 (최초 로딩 중) - Light", showBackground = true)
+@Preview(name = "성적 화면 (최초 로딩 중) - Dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun GradeDetailScreenInitialLoadingPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            GradeDetailContent(
+                uiState = GradeUiState(
+                    isLoading = true,
+                    refreshStatus = GradeRefreshStatus.LOADING,
+                    refreshMessage = "성적 정보를 불러오는 중"
                 )
             )
         }

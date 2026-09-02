@@ -95,11 +95,16 @@ class GradeViewModel @Inject constructor(
                 cachedData?.let { gradeData ->
                     updateGradeState(gradeData)
                 }
+                // 캐시된 성적 정보가 없는 경우 전체 화면 로딩 상태를 활성화합니다.
+                _uiState.update { it.copy(isLoading = isFirstSemesterGradeLoad) }
 
             lmsAuthRepository.ensureActiveSession()
                 .onFailure { throwable ->
                     _uiState.update {
-                        it.copy(loginRequired = throwable.isLmsLoginRequired())
+                        it.copy(
+                            isLoading = false,
+                            loginRequired = throwable.isLmsLoginRequired()
+                        )
                     }
                     updateRefreshError(throwable.toUserFriendlyMessage())
                     hideRefreshPopupAfterDelay()
@@ -117,10 +122,12 @@ class GradeViewModel @Inject constructor(
                     )
                 }
                 .onFailure { throwable ->
+                    _uiState.update { it.copy(isLoading = false) }
                     updateRefreshError(throwable.toUserFriendlyMessage())
                     hideRefreshPopupAfterDelay()
                 }
             } finally {
+                _uiState.update { it.copy(isLoading = false) }
                 isGradeRefreshing = false
             }
         }
