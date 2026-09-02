@@ -98,7 +98,7 @@ fun MyPageScreen(
                     onClick = onTermsClick
                 )
                 MyPageMenuItem(
-                    text = "개인정보수집 및 허용",
+                    text = "개인정보 처리방침",
                     onClick = onPrivacyPolicyClick
                 )
             }

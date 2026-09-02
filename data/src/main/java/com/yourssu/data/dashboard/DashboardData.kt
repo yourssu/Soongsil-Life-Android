@@ -1,6 +1,14 @@
 package com.yourssu.data.dashboard
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+@Serializable
+data class AdvertisementData(
+    @SerialName("image_url") val imageUrl: String,
+    val link: String,
+    val success: Boolean
+)
 
 @Serializable
 data class DashboardData(
@@ -54,9 +62,17 @@ data class DashboardChapelWeeklyAttendance(
     val status: String = "",
 )
 
+@Serializable
 data class DashboardChapelTerm(
-    val year: String,
-    val semester: String,
+    val year: String = "",
+    val semester: String = "",
+)
+
+// 채플 화면 캐싱을 위한 데이터 모델입니다.
+@Serializable
+data class ChapelCacheData(
+    val chapelData: DashboardChapelData = DashboardChapelData(),
+    val availableTerms: List<DashboardChapelTerm> = emptyList(),
 )
 
 enum class DashboardRefreshStep(val current: Int) {

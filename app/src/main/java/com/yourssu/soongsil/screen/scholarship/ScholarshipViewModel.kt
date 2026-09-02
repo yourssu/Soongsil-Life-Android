@@ -7,6 +7,7 @@ import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.ScholarshipRepository
 import com.yourssu.soongsil.data.TuitionRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -43,7 +44,7 @@ class ScholarshipViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isTuitionLoading = false,
-                            tuitionErrorMessage = throwable.message,
+                            tuitionErrorMessage = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
@@ -79,7 +80,7 @@ class ScholarshipViewModel @Inject constructor(
                             tuitionErrorMessage = if (hasHistories) {
                                 null
                             } else {
-                                throwable.message ?: "등록금 내역을 불러오지 못했습니다."
+                                throwable.toUserFriendlyMessage()
                             }
                         )
                     }
@@ -100,7 +101,7 @@ class ScholarshipViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isScholarshipLoading = false,
-                            scholarshipErrorMessage = throwable.message,
+                            scholarshipErrorMessage = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
@@ -137,7 +138,7 @@ class ScholarshipViewModel @Inject constructor(
                             scholarshipErrorMessage = if (hasHistories) {
                                 null
                             } else {
-                                throwable.message ?: "장학금 내역을 불러오지 못했습니다."
+                                throwable.toUserFriendlyMessage()
                             }
                         )
                     }

@@ -1,6 +1,7 @@
 package com.yourssu.soongsil.screen.grade.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.soongsil.screen.grade.model.SemesterTab
-import com.yourssu.soongsil.ui.theme.SoongsilPalette
+import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 
 // 성적 학기 탭 목록을 표시합니다.
 @Composable
@@ -29,13 +30,11 @@ fun SemesterTabs(
     onTabClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val activeTabColor = if (isSystemInDarkTheme()) {
-        SoongsilPalette.Blue600
-    } else { SoongsilPalette.Gray950 }
-
-    val inactiveTabColor = if (isSystemInDarkTheme()) {
-        Color(0xFF2C2C2E)
-    } else { SoongsilPalette.Gray100 }
+    val isDark = isSystemInDarkTheme()
+    val activeBorderColor = if (isDark) Color(0xFF5B9DFF) else Color(0xFF0062FF)
+    val activeTextColor = if (isDark) Color(0xFF5B9DFF) else Color(0xFF0062FF)
+    val inactiveBgColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F4F6)
+    val inactiveTextColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF8B95A1)
 
     LazyRow(
         modifier = modifier.fillMaxWidth(),
@@ -43,24 +42,30 @@ fun SemesterTabs(
     ) {
         itemsIndexed(tabs) { index, tab ->
             val tabShape = RoundedCornerShape(20.dp)
-            Box(
-                modifier = Modifier
+            val boxModifier = if (tab.isActive) {
+                Modifier
                     .clip(tabShape)
-                    .background(
-                        if (tab.isActive) activeTabColor else inactiveTabColor,
-                        tabShape
-                    )
-                    .clickable {
-                        onTabClick(index)
-                    }
+                    .background(Color.Transparent)
+                    .border(1.5.dp, activeBorderColor, tabShape)
+            } else {
+                Modifier
+                    .clip(tabShape)
+                    .background(inactiveBgColor, tabShape)
+            }
+
+            Box(
+                modifier = boxModifier
+                    .clickable { onTabClick(index) }
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = tab.label,
-                    fontSize = 13.sp,
-                    fontWeight = if (tab.isActive) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (tab.isActive) Color.White else Color(0xFF8B95A1)
+                    fontSize = 13.5.sp,
+                    lineHeight = 16.sp,
+                    fontFamily = PretendardFontFamily,
+                    fontWeight = if (tab.isActive) FontWeight.Bold else FontWeight.Medium,
+                    color = if (tab.isActive) activeTextColor else inactiveTextColor
                 )
             }
         }

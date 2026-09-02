@@ -2,11 +2,14 @@ package com.yourssu.soongsil.screen.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourssu.data.dashboard.AdvertisementData
 import com.yourssu.data.dashboard.DashboardData
 import com.yourssu.data.dashboard.DashboardRefreshStep
+import com.yourssu.soongsil.data.AdvertisementRepository
 import com.yourssu.soongsil.data.DashboardRepository
 import com.yourssu.soongsil.data.LmsAuthRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -20,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val lmsAuthRepository: LmsAuthRepository,
-    private val dashboardRepository: DashboardRepository
+    private val dashboardRepository: DashboardRepository,
+    private val advertisementRepository: AdvertisementRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -31,6 +35,7 @@ class DashboardViewModel @Inject constructor(
         val loginRequired: Boolean = false,
         val error: String? = null,
         val dashboardData: DashboardData? = null,
+        val advertisement: AdvertisementData? = null,
         val refreshStatus: DashboardRefreshStatus = DashboardRefreshStatus.LOADING,
         val refreshStep: DashboardRefreshStep = DashboardRefreshStep.CONNECTING,
         val isPullRefreshing: Boolean = false
@@ -40,6 +45,15 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loginWithSavedCredentials()
+        loadAdvertisement()
+    }
+
+    // 인앱 홍보 광고 배너를 불러옵니다.
+    private fun loadAdvertisement() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val advertisement = advertisementRepository.getAdvertisement().getOrNull()
+            _uiState.update { it.copy(advertisement = advertisement) }
+        }
     }
 
     fun onLoginNavigationHandled() {
@@ -76,7 +90,7 @@ class DashboardViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             loginRequired = throwable.isLmsLoginRequired(),
-                            error = throwable.message,
+                            error = throwable.toUserFriendlyMessage(),
                             refreshStatus = if (throwable.isLmsLoginRequired()) {
                                 DashboardRefreshStatus.HIDDEN
                             } else {
@@ -121,7 +135,7 @@ class DashboardViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         loginRequired = loginRequired,
-                        error = throwable.message,
+                        error = throwable.toUserFriendlyMessage(),
                         refreshStatus = if (loginRequired) {
                             DashboardRefreshStatus.HIDDEN
                         } else {
@@ -187,7 +201,7 @@ class DashboardViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = throwable.message,
+                        error = throwable.toUserFriendlyMessage(),
                         refreshStatus = DashboardRefreshStatus.ERROR,
                         isPullRefreshing = false
                     )

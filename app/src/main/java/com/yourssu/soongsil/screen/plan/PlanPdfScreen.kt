@@ -6,8 +6,13 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +32,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -41,12 +48,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -59,10 +71,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.createBitmap
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
+import com.yourssu.soongsil.ui.theme.PretendardFontFamily
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
-import java.io.File
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun PlanPdfScreen(
@@ -115,6 +129,7 @@ fun PlanPdfScreen(
     )
 }
 
+// 강의계획서 PDF 본문 화면입니다. 핀치 줌, 더블탭 확대 및 플로팅 확대/축소 컨트롤을 제공합니다.
 @Composable
 private fun PlanPdfContent(
     title: String,
@@ -123,6 +138,8 @@ private fun PlanPdfContent(
     modifier: Modifier = Modifier
 ) {
     val bottomBarPadding = LocalMainBottomBarPadding.current
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
 
     Column(
         modifier = modifier
@@ -143,21 +160,156 @@ private fun PlanPdfContent(
                 modifier = Modifier.weight(1f)
             )
 
-            is PdfFileState.Success -> LazyColumn(
+            is PdfFileState.Success -> Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = 12.dp,
-                    bottom = 20.dp + bottomBarPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .weight(1f)
             ) {
-                items((0 until pdfState.pageCount).toList()) { pageIndex ->
-                    PdfPage(file = pdfState.file, pageIndex = pageIndex)
+                // PDF 페이지 목록 (핀치 줌 및 드래그 제스처 지원)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (scale > 1.05f) {
+                                        scale = 1f
+                                        offset = Offset.Zero
+                                    } else {
+                                        scale = 2.5f
+                                    }
+                                }
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                val newScale = (scale * zoom).coerceIn(1f, 4f)
+                                scale = newScale
+                                offset = if (newScale > 1f) {
+                                    offset + pan
+                                } else {
+                                    Offset.Zero
+                                }
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        },
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = 12.dp,
+                        bottom = 20.dp + bottomBarPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items((0 until pdfState.pageCount).toList()) { pageIndex ->
+                        PdfPage(file = pdfState.file, pageIndex = pageIndex)
+                    }
                 }
+
+                // 우측 하단 확대/축소 플로팅 컨트롤 바
+                PdfZoomControls(
+                    scale = scale,
+                    onZoomIn = { scale = (scale + 0.5f).coerceAtMost(4f) },
+                    onZoomOut = {
+                        val newScale = (scale - 0.5f).coerceAtLeast(1f)
+                        scale = newScale
+                        if (newScale == 1f) offset = Offset.Zero
+                    },
+                    onResetZoom = {
+                        scale = 1f
+                        offset = Offset.Zero
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = bottomBarPadding)
+                )
+            }
+        }
+    }
+}
+
+// PDF 확대/축소 및 배율 초기화 플로팅 버튼 컴포넌트입니다.
+@Composable
+private fun PdfZoomControls(
+    scale: Float,
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
+    onResetZoom: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val bgColor = if (isDark) {
+        androidx.compose.ui.graphics.Color(0xFF2C2C2E).copy(alpha = 0.92f)
+    } else {
+        androidx.compose.ui.graphics.Color(0xFFFFFFFF).copy(alpha = 0.95f)
+    }
+    val contentColor = if (isDark) androidx.compose.ui.graphics.Color.White else SoongsilPalette.Navy900
+    val percentText = "${(scale * 100).toInt()}%"
+
+    Surface(
+        modifier = modifier.padding(16.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = bgColor,
+        shadowElevation = 6.dp,
+        border = BorderStroke(
+            0.8.dp,
+            if (isDark) androidx.compose.ui.graphics.Color(0xFF3E3E42) else SoongsilPalette.Gray175
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            // 축소 버튼
+            IconButton(
+                onClick = onZoomOut,
+                enabled = scale > 1.0f,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "축소",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (scale > 1.0f) contentColor else contentColor.copy(alpha = 0.3f)
+                )
+            }
+
+            // 배율 텍스트 및 초기화 버튼
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = scale != 1.0f, onClick = onResetZoom)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = percentText,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = PretendardFontFamily,
+                    color = if (scale != 1.0f) androidx.compose.ui.graphics.Color(0xFF0062FF) else contentColor
+                )
+            }
+
+            // 확대 버튼
+            IconButton(
+                onClick = onZoomIn,
+                enabled = scale < 4.0f,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "확대",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (scale < 4.0f) contentColor else contentColor.copy(alpha = 0.3f)
+                )
             }
         }
     }
@@ -470,5 +622,45 @@ private fun PlanPdfErrorPreview() {
             pdfState = PdfFileState.Error("PDF 파일을 표시하지 못했습니다."),
             onBackClick = {}
         )
+    }
+}
+
+@Preview(name = "PDF 줌 컨트롤 (100%) - 라이트", showBackground = true)
+@Preview(name = "PDF 줌 컨트롤 (100%) - 다크", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PdfZoomControlsPreview() {
+    SoongsilLifeAndroidTheme {
+        Box(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(20.dp)
+        ) {
+            PdfZoomControls(
+                scale = 1.0f,
+                onZoomIn = {},
+                onZoomOut = {},
+                onResetZoom = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "PDF 줌 컨트롤 (200%) - 라이트", showBackground = true)
+@Preview(name = "PDF 줌 컨트롤 (200%) - 다크", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PdfZoomControlsZoomedPreview() {
+    SoongsilLifeAndroidTheme {
+        Box(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(20.dp)
+        ) {
+            PdfZoomControls(
+                scale = 2.0f,
+                onZoomIn = {},
+                onZoomOut = {},
+                onResetZoom = {}
+            )
+        }
     }
 }

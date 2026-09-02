@@ -1,16 +1,19 @@
 package com.yourssu.soongsil.screen.dashboard.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -21,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,11 +39,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.dashboard.DashboardSemesterGrade
 import com.yourssu.soongsil.R
 import com.yourssu.soongsil.ui.theme.PretendardFontFamily
+import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
 @Composable
@@ -360,18 +366,36 @@ private fun DashboardGpaLineChart(
     }
 }
 
+// 대시보드 화면의 채플 섹션을 표시합니다.
+// @param seat 배정된 좌석 번호
+// @param totalClasses 채플 총 수업 횟수
+// @param attended 현재 출석 완료 횟수
+// @param onDetailClick 채플 상세 이동 클릭 이벤트
+// @param year 채플 대상 연도 (예: "2026")
+// @param semester 채플 대상 학기 (예: "1학기")
 @Composable
 fun DashboardChapelSection(
     seat: String,
     totalClasses: Int,
     attended: Int,
     onDetailClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    year: String = "",
+    semester: String = ""
 ) {
+    val hasChapelData = totalClasses > 0
     val passRequired = (totalClasses - 1).coerceAtLeast(0)
     val remaining = (passRequired - attended).coerceAtLeast(0)
     val progress = if (totalClasses == 0) 0f else attended.toFloat() / totalClasses
     val passPoint = if (totalClasses == 0) 0f else passRequired.toFloat() / totalClasses
+
+    // "2026년 1학기"와 같이 N년 N학기 형식으로 학기 텍스트를 구성합니다.
+    val formattedTerm = if (year.isNotBlank() && semester.isNotBlank()) {
+        val normalizedSemester = if (semester.endsWith("학기")) semester else "${semester}학기"
+        "${year}년 $normalizedSemester"
+    } else {
+        "이번 학기"
+    }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(
@@ -404,80 +428,139 @@ fun DashboardChapelSection(
                 .padding(top = 20.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (remaining == 0) {
-                        Text(
-                            text = "이번 학기 채플은 Pass!",
-                            style = chapelBodyStyle(),
-                            color = Color(0xFF3182F6),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Row {
-                            Text("Pass까지 ", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
-                            Text("${remaining}회", style = chapelBodyStyle(), color = Color(0xFF3182F6), fontWeight = FontWeight.SemiBold)
-                            Text(" 남았어요", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
-                        }
-                    }
-                    Text(
-                        text = "$attended / $totalClasses",
-                        color = Color(0xFF3182F6),
-                        fontFamily = PretendardFontFamily,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                BoxWithConstraints(
+            if (!hasChapelData) {
+                // 채플 상세 데이터가 없는 경우 안내 문구를 표시합니다.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(30.dp)
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Box(
+                    Text(
+                        text = "$formattedTerm 채플 정보가 없어요",
+                        style = chapelBodyStyle(),
+                        color = SoongsilPalette.Slate400,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (remaining == 0) {
+                            Text(
+                                text = "$formattedTerm 채플은 Pass!",
+                                style = chapelBodyStyle(),
+                                color = Color(0xFF3182F6),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else {
+                            Row {
+                                Text("Pass까지 ", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
+                                Text("${remaining}회", style = chapelBodyStyle(), color = Color(0xFF3182F6), fontWeight = FontWeight.SemiBold)
+                                Text(" 남았어요", style = chapelBodyStyle(), color = MaterialTheme.colorScheme.onBackground)
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "$attended",
+                                color = Color(0xFF3182F6),
+                                fontFamily = PretendardFontFamily,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = " / $totalClasses",
+                                color = SoongsilPalette.Slate400,
+                                fontFamily = PretendardFontFamily,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    // 세그먼트 분할 프로그레스 바 및 상단 역삼각형(▼) 기준 마커
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
-                            .background(Color(0xFFC9E2FF), RoundedCornerShape(10.dp))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress.coerceIn(0f, 1f))
-                            .height(8.dp)
-                            .background(Color(0xFF3182F6), RoundedCornerShape(10.dp))
-                    )
-                    if (totalClasses > 0) {
-                        val markerX = maxWidth * passPoint.coerceIn(0f, 1f)
-                        val labelX = (markerX - 42.dp)
-                            .coerceIn(0.dp, (maxWidth - 84.dp).coerceAtLeast(0.dp))
-                        Box(
-                            modifier = Modifier
-                                .offset(x = markerX)
-                                .width(1.dp)
-                                .height(12.dp)
-                                .background(Color(0xFF2272EB))
-                        )
-                        Text(
-                            text = "Pass 기준점",
-                            modifier = Modifier
-                                .offset(x = labelX, y = 12.dp)
-                                .width(84.dp),
-                            color = Color(0xFF2272EB),
-                            fontFamily = PretendardFontFamily,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
+                            .padding(top = 4.dp)
+                    ) {
+                        val triangleWidth = 8.dp
+                        val triangleHeight = 6.dp
+                        val markerX = if (totalClasses > 0) {
+                            (maxWidth * passPoint.coerceIn(0f, 1f) - triangleWidth / 2)
+                                .coerceIn(0.dp, (maxWidth - triangleWidth).coerceAtLeast(0.dp))
+                        } else {
+                            0.dp
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            // 상단 Pass 기준 역삼각형 마커
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(triangleHeight)
+                            ) {
+                                if (totalClasses > 0) {
+                                    Canvas(
+                                        modifier = Modifier
+                                            .offset(x = markerX)
+                                            .size(width = triangleWidth, height = triangleHeight)
+                                    ) {
+                                        val path = Path().apply {
+                                            moveTo(0f, 0f)
+                                            lineTo(size.width, 0f)
+                                            lineTo(size.width / 2f, size.height)
+                                            close()
+                                        }
+                                        drawPath(path, color = Color(0xFF3182F6))
+                                    }
+                                }
+                            }
+
+                            // 분할된 세그먼트 프로그레스 막대
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                                horizontalArrangement = Arrangement.spacedBy(1.5.dp)
+                            ) {
+                                val segmentCount = totalClasses.coerceAtLeast(1)
+                                repeat(segmentCount) { index ->
+                                    val isAttended = totalClasses > 0 && index < attended
+                                    val segmentColor = if (isAttended) {
+                                        androidx.compose.ui.graphics.lerp(
+                                            Color(0xFF90CAF9),
+                                            Color(0xFF3182F6),
+                                            if (totalClasses <= 1) 1f else (index.toFloat() / (totalClasses - 1)).coerceIn(0f, 1f)
+                                        )
+                                    } else {
+                                        if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFE5E8EB)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .background(segmentColor)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
+
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 20.dp),
                 color = MaterialTheme.colorScheme.outline
@@ -493,11 +576,23 @@ fun DashboardChapelSection(
                         .padding(top = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val zone = seat.substringBefore("-").trim().uppercase()
+                    val floor = when (zone) {
+                        "A", "B", "C", "D", "E" -> "1층"
+                        "F", "G", "H", "I", "J" -> "2층"
+                        else -> ""
+                    }
+                    val seatDisplayText = when {
+                        !hasChapelData || seat.isBlank() || seat == "-" -> "정보 없음"
+                        floor.isNotBlank() && !seat.startsWith(floor) -> "$floor $seat"
+                        else -> seat
+                    }
+
                     Text("좌석 정보", style = chapelBodyStyle(), color = SoongsilPalette.Slate400)
                     Text(
-                        text = seat,
+                        text = seatDisplayText,
                         style = chapelBodyStyle(),
-                        color = Color(0xFF3182F6),
+                        color = if (hasChapelData && seat.isNotBlank() && seat != "-") Color(0xFF3182F6) else SoongsilPalette.Slate400,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -560,5 +655,99 @@ private fun DashboardQuickLink(label: String, onClick: () -> Unit, modifier: Mod
             lineHeight = 18.sp,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+// ─── Previews ───
+
+// 대시보드 채플 섹션 (진행 중 - 12주차 케이스) 프리뷰입니다.
+@Preview(name = "Dashboard Chapel Section 12 Weeks - Light", showBackground = true)
+@Preview(
+    name = "Dashboard Chapel Section 12 Weeks - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun DashboardChapelSection12WeeksPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.padding(16.dp)) {
+            DashboardChapelSection(
+                seat = "A-1-2",
+                totalClasses = 12,
+                attended = 6,
+                year = "2026",
+                semester = "1학기",
+                onDetailClick = {}
+            )
+        }
+    }
+}
+
+// 대시보드 채플 섹션 (진행 중) 프리뷰입니다.
+@Preview(name = "Dashboard Chapel Section In Progress - Light", showBackground = true)
+@Preview(
+    name = "Dashboard Chapel Section In Progress - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun DashboardChapelSectionInProgressPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.padding(16.dp)) {
+            DashboardChapelSection(
+                seat = "C-13-4",
+                totalClasses = 8,
+                attended = 5,
+                year = "2026",
+                semester = "1학기",
+                onDetailClick = {}
+            )
+        }
+    }
+}
+
+// 대시보드 채플 섹션 (Pass 완료) 프리뷰입니다.
+@Preview(name = "Dashboard Chapel Section Pass - Light", showBackground = true)
+@Preview(
+    name = "Dashboard Chapel Section Pass - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun DashboardChapelSectionPassPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.padding(16.dp)) {
+            DashboardChapelSection(
+                seat = "C-13-4",
+                totalClasses = 8,
+                attended = 7,
+                year = "2026",
+                semester = "1학기",
+                onDetailClick = {}
+            )
+        }
+    }
+}
+
+// 대시보드 채플 섹션 (데이터 없음) 프리뷰입니다.
+@Preview(name = "Dashboard Chapel Section Empty - Light", showBackground = true)
+@Preview(
+    name = "Dashboard Chapel Section Empty - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun DashboardChapelSectionEmptyPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.padding(16.dp)) {
+            DashboardChapelSection(
+                seat = "",
+                totalClasses = 0,
+                attended = 0,
+                year = "2026",
+                semester = "1학기",
+                onDetailClick = {}
+            )
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿package com.yourssu.soongsil
+package com.yourssu.soongsil
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -94,10 +94,23 @@ import com.yourssu.soongsil.ui.components.MainTab
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
 
+// 개인정보 처리방침 노션 페이지 링크 URL입니다.
+private const val PRIVACY_POLICY_URL = "https://app.notion.com/p/3cf5364b6dbf805a8904f98c452f0cb1?source=copy_link"
+
+// 서비스 이용약관 노션 페이지 링크 URL입니다.
+private const val TERMS_OF_SERVICE_URL = "https://app.notion.com/p/3cf5364b6dbf804eac29dced5d4c9001?source=copy_link"
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-
+    // 외부 웹 브라우저를 통해 주어진 웹 URL을 엽니다.
+    // @param url 열고자 하는 웹 페이지의 URL 주소입니다.
+    private fun openWebUrl(url: String) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent) // 웹 브라우저 액티비티를 실행합니다.
+        }
+    }
 
     val activityResultLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result: ActivityResult ->
         if (result.resultCode != RESULT_OK) {
@@ -257,6 +270,8 @@ class MainActivity : ComponentActivity() {
                         }
                         composable<OnBoardingTerms> {
                             OnBoardingScreen(
+                                onServiceTermsClick = { openWebUrl(TERMS_OF_SERVICE_URL) },
+                                onPrivacyPolicyClick = { openWebUrl(PRIVACY_POLICY_URL) },
                                 onTermsAgreementCompleted = {
                                     navController.navigate(OnBoardingComplete) {
                                         popUpTo<OnBoardingTerms> { inclusive = true }
@@ -299,7 +314,10 @@ class MainActivity : ComponentActivity() {
                                 chapelSeat = dashboardData?.chapel?.seat.orEmpty(),
                                 chapelRequired = dashboardData?.chapel?.required ?: 0,
                                 chapelAttended = dashboardData?.chapel?.attended ?: 0,
+                                chapelYear = dashboardData?.chapel?.year.orEmpty(),
+                                chapelSemester = dashboardData?.chapel?.semester.orEmpty(),
                                 isGradeBlurred = !isDashboardGradeRevealed,
+                                advertisement = uiState.advertisement,
                                 refreshStatus = uiState.refreshStatus,
                                 refreshStep = uiState.refreshStep,
                                 isPullRefreshing = uiState.isPullRefreshing,
@@ -313,7 +331,8 @@ class MainActivity : ComponentActivity() {
                                 onGradeDetailClick = { navController.navigate(Grade) },
                                 onChapelClick = { navController.navigate(Chapel) },
                                 onGraduateClick = { navController.navigate(Graduate) },
-                                onScholarshipClick = { navController.navigate(Scholarship) }
+                                onScholarshipClick = { navController.navigate(Scholarship) },
+                                onAdvertisementClick = ::openWebUrl
                             )
                         }
                         composable<Grade> {
@@ -375,7 +394,9 @@ class MainActivity : ComponentActivity() {
                                 onGradeNotificationToggle = viewModel::setGradeNotificationEnabled,
                                 onLogoutClick = viewModel::logout,
                                 onKeepClick = { navController.navigate(Keep) },
-                                onCourseCatalogClick = { navController.navigate(CourseCatalog) }
+                                onCourseCatalogClick = { navController.navigate(CourseCatalog) },
+                                onTermsClick = { openWebUrl(TERMS_OF_SERVICE_URL) },
+                                onPrivacyPolicyClick = { openWebUrl(PRIVACY_POLICY_URL) }
                             )
                         }
                         composable<Keep> {
@@ -492,7 +513,8 @@ class MainActivity : ComponentActivity() {
                                 uiState = uiState,
                                 onRetry = viewModel::retry,
                                 onCourseClick = viewModel::selectCourse,
-                                onDismissCourseDetail = viewModel::dismissCourseDetail
+                                onDismissCourseDetail = viewModel::dismissCourseDetail,
+                                onSelectTerm = viewModel::selectTerm
                             )
                         }
                         composable<PushNotifications> {

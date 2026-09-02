@@ -106,6 +106,9 @@ fun ChapelSeatCard(
     }
 }
 
+// 채플 출석 현황 요약 카드입니다.
+// @param year 대상 연도 (예: "2026")
+// @param semester 대상 학기 (예: "1학기")
 @Composable
 fun ChapelAttendanceCard(
     remaining: Int,
@@ -115,9 +118,18 @@ fun ChapelAttendanceCard(
     absent: Int,
     progress: Float,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    year: String = "",
+    semester: String = ""
 ) {
     val cardShape = RoundedCornerShape(18.dp)
+    val formattedTerm = if (year.isNotBlank() && semester.isNotBlank()) {
+        val normalizedSemester = if (semester.endsWith("학기")) semester else "${semester}학기"
+        "${year}년 $normalizedSemester"
+    } else {
+        "이번 학기"
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -132,7 +144,7 @@ fun ChapelAttendanceCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "이번 학기 남은 출석",
+                text = "$formattedTerm 남은 출석",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
@@ -163,5 +175,35 @@ fun ChapelAttendanceCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp
         )
+    }
+}
+
+// ─── Previews ───
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Chapel Attendance Card - Light", showBackground = true)
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Chapel Attendance Card - Dark",
+    showBackground = true,
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ChapelAttendanceCardPreview() {
+    com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme {
+        androidx.compose.material3.Surface(
+            color = MaterialTheme.colorScheme.background,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            ChapelAttendanceCard(
+                remaining = 3,
+                required = 8,
+                attended = 5,
+                late = 0,
+                absent = 0,
+                progress = 5f / 8f,
+                year = "2026",
+                semester = "1학기",
+                onClick = {}
+            )
+        }
     }
 }

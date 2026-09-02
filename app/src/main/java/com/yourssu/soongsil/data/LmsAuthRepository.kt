@@ -217,3 +217,27 @@ class LmsLoginRequiredException(message: String) : IllegalStateException(message
 // 저장소에서 예외를 감싸더라도 로그인 화면 이동 사유를 잃지 않도록 확인합니다.
 fun Throwable.isLmsLoginRequired(): Boolean =
     generateSequence(this) { it.cause }.any { it is LmsLoginRequiredException }
+
+// LMS API 및 네트워크 예외를 사용자 친화적인 메시지로 변환합니다.
+fun Throwable.toUserFriendlyMessage(): String {
+    val causes = generateSequence(this) { it.cause }
+    val isWebDynproBlocked = causes.any { cause ->
+        val msg = cause.message.orEmpty()
+        val name = cause.javaClass.simpleName
+        name.contains("WebDynproSessionException", ignoreCase = true) ||
+                name.contains("WebDynpro", ignoreCase = true) ||
+                msg.contains("Web Dynpro", ignoreCase = true) ||
+                msg.contains("화면 세션을 초기화하지 못했습니다", ignoreCase = true) ||
+                msg.contains("초기화하지 못했습니다", ignoreCase = true) ||
+                msg.contains("세션", ignoreCase = true) && msg.contains("실패", ignoreCase = true) ||
+                msg.contains("ZCMW", ignoreCase = true) ||
+                msg.contains("거절", ignoreCase = true) ||
+                cause.toString().contains("WebDynpro", ignoreCase = true)
+    }
+
+    return if (isWebDynproBlocked) {
+        "현재 유세인트에서 정보 요청을 거절하고 있어요"
+    } else {
+        message ?: "데이터를 불러오는 중 오류가 발생했습니다."
+    }
+}

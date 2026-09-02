@@ -1,7 +1,8 @@
-﻿package com.yourssu.soongsil.screen.timetable
+package com.yourssu.soongsil.screen.timetable
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourssu.data.timetable.TimetableCacheData
 import com.yourssu.data.timetable.TimetableCourse
 import com.yourssu.data.timetable.TimetableData
 import com.yourssu.data.timetable.TimetableSemester
@@ -9,6 +10,7 @@ import com.yourssu.data.timetable.TimetableTerm
 import com.yourssu.soongsil.data.TimetableRepository
 import com.yourssu.soongsil.data.isLmsLoginRequired
 import com.yourssu.soongsil.data.timetableTermOf
+import com.yourssu.soongsil.data.toUserFriendlyMessage
 import com.yourssu.soongsil.data.withAdditionalTimetableTerm
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +33,37 @@ class TimetableViewModel @Inject constructor(
     private var timetableRequestId = 0L
 
     init {
+        loadCachedTimetable()
         loadInitialTimetable()
+    }
+
+    private fun loadCachedTimetable() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cached = timetableRepository.getCachedData() ?: return@launch
+            val defaultTimetable = cached.defaultTimetable
+            val availableTerms = cached.availableTerms
+            val defaultTerm = availableTerms.firstOrNull()
+                ?: defaultTimetable.takeIf { it.year.isNotBlank() }?.let {
+                    timetableTermOf(year = it.year, semester = it.semester)
+                }
+
+            if (defaultTimetable.courses.isNotEmpty() || availableTerms.isNotEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoadingTerms = false,
+                        availableTerms = availableTerms,
+                        selectedYear = defaultTerm?.year ?: defaultTimetable.year,
+                        selectedSemester = defaultTerm?.semester ?: TimetableSemester.FIRST,
+                        year = defaultTimetable.year,
+                        semester = defaultTimetable.semester,
+                        courses = defaultTimetable.courses,
+                        errorMessage = null,
+                        termLoadError = null
+                    )
+                }
+            }
+        }
     }
 
     fun retry() {
@@ -44,10 +76,12 @@ class TimetableViewModel @Inject constructor(
         loadTimetable(term = currentTerm(), forceReload = true)
     }
 
+    // 학기를 선택하여 해당 학기의 시간표를 불러옵니다.
     fun selectTerm(year: String, semester: TimetableSemester) {
+        val normalizedTargetYear = year.toAcademicYearText()
         val selectedTerm = _uiState.value.availableTerms.firstOrNull {
-            it.year == year.toAcademicYearText() && it.semester == semester
-        } ?: return
+            it.year.toAcademicYearText() == normalizedTargetYear && it.semester == semester
+        } ?: TimetableTerm(year = normalizedTargetYear, semester = semester)
 
         loadTimetable(term = selectedTerm, forceReload = false)
     }
@@ -64,17 +98,30 @@ class TimetableViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
+    // 에러 팝업을 닫습니다.
+    fun dismissError() {
+        _uiState.update {
+            it.copy(
+                errorMessage = null,
+                termLoadError = null
+            )
+        }
+    }
+
     private fun loadInitialTimetable() {
         val currentRequestId = ++termRequestId
 
-        _uiState.update {
-            it.copy(
-                isLoadingTerms = true,
-                isLoading = true,
-                termLoadError = null,
-                errorMessage = null,
-                selectedCourse = null
-            )
+        val hasExistingData = _uiState.value.courses.isNotEmpty() || _uiState.value.availableTerms.isNotEmpty()
+        if (!hasExistingData) {
+            _uiState.update {
+                it.copy(
+                    isLoadingTerms = true,
+                    isLoading = true,
+                    termLoadError = null,
+                    errorMessage = null,
+                    selectedCourse = null
+                )
+            }
         }
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -114,7 +161,6 @@ class TimetableViewModel @Inject constructor(
                 }
 
                 if (defaultTimetable != null && defaultTerm != null) {
-                    // 기본 시간표 응답을 초기 화면에 그대로 사용하고 getTerms가 덮어쓰지 않도록 합니다.
                     showDefaultTimetable(
                         timetable = defaultTimetable,
                         term = defaultTerm,
@@ -165,9 +211,31 @@ class TimetableViewModel @Inject constructor(
                 termLoadError = null
             )
         }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            timetableRepository.updateCacheData(
+                TimetableCacheData(
+                    defaultTimetable = timetable,
+                    availableTerms = availableTerms
+                )
+            )
+        }
     }
 
     private fun showInitialLoadFailure(throwable: Throwable?) {
+        val hasExistingCourses = _uiState.value.courses.isNotEmpty()
+        if (hasExistingCourses) {
+            _uiState.update {
+                it.copy(
+                    isLoadingTerms = false,
+                    isLoading = false,
+                    errorMessage = throwable?.toUserFriendlyMessage(),
+                    loginRequired = throwable?.isLmsLoginRequired() == true
+                )
+            }
+            return
+        }
+
         _uiState.update {
             it.copy(
                 isLoadingTerms = false,
@@ -179,7 +247,7 @@ class TimetableViewModel @Inject constructor(
                 semester = "",
                 courses = emptyList(),
                 errorMessage = null,
-                termLoadError = throwable?.message ?: "시간표를 불러오지 못했습니다.",
+                termLoadError = throwable?.toUserFriendlyMessage() ?: "시간표를 불러오지 못했습니다.",
                 loginRequired = throwable?.isLmsLoginRequired() == true
             )
         }
@@ -198,12 +266,9 @@ class TimetableViewModel @Inject constructor(
                 it.copy(
                     isLoading = true,
                     errorMessage = null,
-                    selectedYear = term.year,
-                    selectedSemester = term.semester,
                     selectedCourse = null,
-                    year = term.year,
-                    semester = term.semester.label,
-                    courses = emptyList()
+                    selectedYear = term.year,
+                    selectedSemester = term.semester
                 )
             }
 
@@ -223,6 +288,15 @@ class TimetableViewModel @Inject constructor(
                             errorMessage = null
                         )
                     }
+
+                    val currentCache = timetableRepository.getCachedData() ?: TimetableCacheData()
+                    val updatedTimetables = currentCache.timetablesByTerm + ("${term.year}-${term.semester.name}" to timetableData)
+                    timetableRepository.updateCacheData(
+                        currentCache.copy(
+                            timetablesByTerm = updatedTimetables,
+                            availableTerms = _uiState.value.availableTerms
+                        )
+                    )
                 }
                 .onFailure { throwable ->
                     if (currentRequestId != timetableRequestId) return@onFailure
@@ -230,10 +304,7 @@ class TimetableViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            year = term.year,
-                            semester = term.semester.label,
-                            courses = emptyList(),
-                            errorMessage = throwable.message ?: "시간표를 불러오지 못했습니다.",
+                            errorMessage = throwable.toUserFriendlyMessage(),
                             loginRequired = throwable.isLmsLoginRequired()
                         )
                     }
@@ -274,5 +345,5 @@ private fun String.toAcademicYearText(): String {
 }
 
 private fun TimetableTerm.hasSameSelection(other: TimetableTerm): Boolean {
-    return year == other.year && semester == other.semester
+    return year.toAcademicYearText() == other.year.toAcademicYearText() && semester == other.semester
 }

@@ -11,7 +11,7 @@ activityCompose = "1.13.0"
 kotlin = "2.4.10"
 composeBom = "2026.06.01"
 jetbrainsKotlinJvm = "2.4.10"
-lms = "1.6.5.4"
+lms = "1.6.6.2"
 navigationCompose = "2.9.8"
 datastore = "1.2.1"
 
