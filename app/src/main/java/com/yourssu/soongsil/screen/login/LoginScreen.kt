@@ -49,7 +49,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -127,7 +126,6 @@ private fun LoginLoadingOverlay() {
             text = "잠시만 기다려주세요",
             color = if (isDarkTheme) Color(0xFFA1A1AA) else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
-            fontStyle = FontStyle.Italic
         )
     }
 }
@@ -182,7 +180,6 @@ private fun LoginScreenContent(
                 text = "학사 정보를 한눈에 확인할 수 있어요",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
-                fontStyle = FontStyle.Italic
             )
         }
 
