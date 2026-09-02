@@ -249,7 +249,7 @@ class MainActivity : ComponentActivity() {
 
                             LaunchedEffect(uiState.isLoginSuccessful) {
                                 if (uiState.isLoginSuccessful) {
-                                    val destination = if (uiState.isOnboardingRequired || BuildConfig.DEBUG) {
+                                    val destination = if (uiState.isOnboardingRequired) {
                                         OnBoardingTerms
                                     } else {
                                         Dashboard
