@@ -69,13 +69,13 @@ fun MyPageScreen(
 
             MyPageDivider()
 
-            MyPageSection(title = "알림") {
-                MyPageToggleItem(
-                    text = "성적 알림 받기",
-                    checked = gradeNotificationEnabled,
-                    onCheckedChange = onGradeNotificationToggle
-                )
-            }
+//            MyPageSection(title = "알림") {
+//                MyPageToggleItem(
+//                    text = "성적 알림 받기",
+//                    checked = gradeNotificationEnabled,
+//                    onCheckedChange = onGradeNotificationToggle
+//                )
+//            }
 
             MyPageDivider()
 

@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourssu.data.dashboard.DashboardChapelData
 import com.yourssu.soongsil.R
-import com.yourssu.soongsil.ui.theme.SoongsilPalette
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
+import com.yourssu.soongsil.ui.theme.SoongsilPalette
 
 /*@Composable
 fun ChapelSeatLocation(
@@ -444,12 +444,19 @@ private fun ZoneSeatGrid(
                                         actualSeatRow == mineRow &&
                                         column == mineCol
 
+                            // 내 자리가 아닌 다른 좌석의 색상입니다. 다크모드에서는 배경과 구분되도록 Gray800을 사용합니다.
+                            val otherSeatColor = if (isSystemInDarkTheme()) {
+                                SoongsilPalette.Gray800
+                            } else {
+                                SoongsilPalette.Gray200
+                            }
+
                             Box(
                                 modifier = seatModifier.background(
                                     color = if (isMySeat) {
                                         MaterialTheme.colorScheme.primary
                                     } else {
-                                        MaterialTheme.colorScheme.outlineVariant
+                                        otherSeatColor
                                     },
                                     shape = RoundedCornerShape(1.dp),
                                 ),
@@ -575,7 +582,7 @@ private fun SeatMapWrap(
     modifier: Modifier = Modifier,
 ) {
     val backgroundColor = if (isSystemInDarkTheme()) {
-        MaterialTheme.colorScheme.surfaceVariant
+        MaterialTheme.colorScheme.surfaceContainer
     } else {
         SoongsilPalette.Gray25
     }
