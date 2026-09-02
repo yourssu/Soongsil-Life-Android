@@ -68,7 +68,7 @@ fun MyPageScreen(
             }
 
             MyPageDivider()
-
+// TODO 성적 알림 추가 시 주석해제
 //            MyPageSection(title = "알림") {
 //                MyPageToggleItem(
 //                    text = "성적 알림 받기",
