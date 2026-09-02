@@ -142,13 +142,13 @@ private fun OnBoardingContent(
                 onCheckedChange = onPrivacyPolicyCheckedChange,
                 onDetailClick = onPrivacyPolicyDetailClick
             )
-            TermsRow(
-                title = "마케팅 정보 수신 동의",
-                isRequired = false,
-                isAgreed = marketingTermsAgreed,
-                onCheckedChange = onMarketingTermsCheckedChange,
-                onDetailClick = onMarketingTermsDetailClick
-            )
+//            TermsRow(
+//                title = "마케팅 정보 수신 동의",
+//                isRequired = false,
+//                isAgreed = marketingTermsAgreed,
+//                onCheckedChange = onMarketingTermsCheckedChange,
+//                onDetailClick = onMarketingTermsDetailClick
+//            )
 
             Spacer(modifier = Modifier.weight(1f))
 
