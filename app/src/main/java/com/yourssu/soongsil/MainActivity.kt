@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -89,10 +91,14 @@ import com.yourssu.soongsil.screen.scholarship.ScholarshipViewModel
 import com.yourssu.soongsil.screen.timetable.TimetableScreen
 import com.yourssu.soongsil.screen.timetable.TimetableViewModel
 import com.yourssu.soongsil.ui.components.LocalMainBottomBarPadding
+import com.yourssu.soongsil.ui.components.LocalSnackbarHostState
 import com.yourssu.soongsil.ui.components.MainBottomBar
 import com.yourssu.soongsil.ui.components.MainTab
+import com.yourssu.soongsil.ui.components.SoongsilSnackbarHost
 import com.yourssu.soongsil.ui.theme.SoongsilLifeAndroidTheme
+import com.yourssu.soongsil.util.NetworkMonitor
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 // 개인정보 처리방침 노션 페이지 링크 URL입니다.
 private const val PRIVACY_POLICY_URL = "https://app.notion.com/p/3cf5364b6dbf805a8904f98c452f0cb1?source=copy_link"
@@ -102,6 +108,10 @@ private const val TERMS_OF_SERVICE_URL = "https://app.notion.com/p/3cf5364b6dbf8
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // 기기 네트워크 연결 상태를 모니터링하는 인스턴스입니다.
+    @Inject
+    lateinit var networkMonitor: NetworkMonitor
 
     // 외부 웹 브라우저를 통해 주어진 웹 URL을 엽니다.
     // @param url 열고자 하는 웹 페이지의 URL 주소입니다.
@@ -169,11 +179,21 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-
         setContent {
-
             val navController = rememberNavController()
+            val snackbarHostState = remember { SnackbarHostState() }
+            val isOnline by networkMonitor.isOnline.collectAsState(initial = networkMonitor.isCurrentlyConnected)
             var isDashboardGradeRevealed by remember { mutableStateOf(false) }
+
+            // 인터넷 연결 상태가 끊겼을 때 스낵바로 안내합니다.
+            LaunchedEffect(isOnline) {
+                if (!isOnline) {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = "인터넷에 연결되어 있지 않아 데이터를 불러올 수 없습니다."
+                    )
+                }
+            }
 
             // 앱이 백그라운드로 내려가면 다음 진입부터 성적을 다시 가립니다.
             DisposableEffect(Unit) {
@@ -215,27 +235,40 @@ class MainActivity : ComponentActivity() {
                 var bottomBarHeightPx by remember { mutableIntStateOf(0) }
                 val bottomBarHeight = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
 
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                ) {
-                    val bottomBarGap = maxHeight * 0.01f
-                    val navHostInsets = if (showBottomBar) {
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.background,
+                    snackbarHost = {
+                        SoongsilSnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier
+                                .navigationBarsPadding()
+                                .padding(bottom = if (showBottomBar) bottomBarHeight + 8.dp else 16.dp)
                         )
-                    } else {
-                        WindowInsets.safeDrawing
                     }
-
-                    CompositionLocalProvider(
-                        LocalMainBottomBarPadding provides if (showBottomBar) {
-                            bottomBarHeight
-                        } else {
-                            0.dp
-                        }
+                ) { _ ->
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
                     ) {
+                        val bottomBarGap = maxHeight * 0.01f
+                        val navHostInsets = if (showBottomBar) {
+                            WindowInsets.safeDrawing.only(
+                                WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                            )
+                        } else {
+                            WindowInsets.safeDrawing
+                        }
+
+                        CompositionLocalProvider(
+                            LocalMainBottomBarPadding provides if (showBottomBar) {
+                                bottomBarHeight
+                            } else {
+                                0.dp
+                            },
+                            LocalSnackbarHostState provides snackbarHostState
+                        ) {
                         NavHost(
                             navController = navController,
                             startDestination = Dashboard,
@@ -246,6 +279,16 @@ class MainActivity : ComponentActivity() {
                         composable<Login> {
                             val viewModel: LoginViewModel = hiltViewModel()
                             val uiState by viewModel.uiState.collectAsState()
+                            val localSnackbarHostState = LocalSnackbarHostState.current
+
+                            // 인터넷 미연결 상태일 때 스낵바를 노출합니다.
+                            LaunchedEffect(uiState.isNetworkOffline) {
+                                if (uiState.isNetworkOffline) {
+                                    localSnackbarHostState.currentSnackbarData?.dismiss()
+                                    localSnackbarHostState.showSnackbar("인터넷에 연결되어 있지 않아 로그인할 수 없습니다.")
+                                    viewModel.onNetworkOfflineHandled()
+                                }
+                            }
 
                             LaunchedEffect(uiState.isLoginSuccessful) {
                                 if (uiState.isLoginSuccessful) {
@@ -585,6 +628,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }
 
 private fun NavHostController.navigateToMainTab(tab: MainTab) {

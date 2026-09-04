@@ -92,6 +92,10 @@ class GradeViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false) }
                     }
                 }
+                // 캐시된 성적 정보가 없는 경우 전체 화면 로딩 상태를 활성화합니다.
+                if (isFirstSemesterGradeLoad) {
+                    _uiState.update { it.copy(isLoading = true) }
+                }
 
                 lmsAuthRepository.ensureActiveSession()
                     .onFailure { throwable ->

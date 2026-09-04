@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -630,9 +631,17 @@ fun DashboardQuickLinks(
     }
 }
 
+// 대시보드 바로가기(졸업사정표, 등록금·장학금) 항목 컴포넌트입니다.
+// @param label 버튼 하단에 노출될 텍스트 라벨입니다.
+// @param onClick 클릭 시 호출될 콜백입니다.
+// @param modifier 컴포저블에 적용할 Modifier입니다.
+// @param resId 표시할 벡터 드로어블 리소스 ID입니다.
 @Composable
 private fun DashboardQuickLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, resId: Int) {
     val quickLinkShape = RoundedCornerShape(4.dp)
+    // 다크모드에서는 밝은 흰색으로 표시하여 시인성을 높입니다.
+    val iconTint = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onBackground
+
     Column(
         modifier = modifier
             .clip(quickLinkShape)
@@ -642,10 +651,11 @@ private fun DashboardQuickLink(label: String, onClick: () -> Unit, modifier: Mod
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Image(
+        Icon(
             painter = painterResource(resId),
             contentDescription = label,
-            modifier = Modifier.size(34.dp)
+            modifier = Modifier.size(34.dp),
+            tint = iconTint
         )
         Text(
             text = label,
