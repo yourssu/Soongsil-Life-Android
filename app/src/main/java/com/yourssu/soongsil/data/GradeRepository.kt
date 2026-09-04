@@ -15,6 +15,8 @@ import io.github.chlwhdtn03.LmsApi
 import io.github.chlwhdtn03.LmsTermsResult
 import io.github.chlwhdtn03.data.Lms.Semester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -59,22 +61,25 @@ class GradeRepository @Inject constructor(
         }
     }
 
-    // LMS API에서 학기 목록과 성적 요약 정보를 새로 불러옵니다.
+    // LMS API에서 성적 조회에 사용 가능한 학기 목록을 불러옵니다.
     @OptIn(ExperimentalTime::class)
-    suspend fun refreshGradeOverview(): Result<GradeData> = runCatching {
+    suspend fun getSemesters(): Result<List<GradeSemester>> = runCatching {
         val terms = getTerms()
-        val semesters = terms.terms
+        terms.terms
             .mapNotNull { semester ->
                 semester.name?.let { name ->
                     parseGradeSemester(name)
                 }
             }
             .distinctBy { semester -> semester.cacheKey }
+    }
 
+    // LMS API에서 전체 학기별 성적 요약표(평점, 석차, 취득학점)를 불러옵니다.
+    suspend fun getGradeSummaries(): Result<Map<SemesterKey, GradeSemesterSummary>> = runCatching {
         val summaryTable = withContext(Dispatchers.IO) {
             LmsApi.getSemesterGradeSummaryTable()
         }
-        val summaries = summaryTable.items
+        summaryTable.items
             .mapNotNull { summary ->
                 val semester = summary.semester ?: return@mapNotNull null
                 buildCacheKey(year = summary.year, semester = semester) to GradeSemesterSummary(
@@ -86,10 +91,18 @@ class GradeRepository @Inject constructor(
                 )
             }
             .toMap()
-        GradeData(
-            semesters = semesters,
-            summaries = summaries
-        )
+    }
+
+    // LMS API에서 학기 목록과 성적 요약 정보를 병렬로 새로 불러옵니다.
+    suspend fun refreshGradeOverview(): Result<GradeData> = runCatching {
+        coroutineScope {
+            val semestersDeferred = async { getSemesters().getOrThrow() }
+            val summariesDeferred = async { getGradeSummaries().getOrThrow() }
+            GradeData(
+                semesters = semestersDeferred.await(),
+                summaries = summariesDeferred.await()
+            )
+        }
     }
 
     // LMS API에서 특정 학기의 상세 성적을 새로 불러옵니다.

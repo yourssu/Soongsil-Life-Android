@@ -43,10 +43,10 @@ data class GradeUiState(
     val semesters: List<SemesterTab> = emptyList(),
     val selectedSemesterIndex: Int = 0,
     val gpaPoints: List<GpaPoint> = emptyList(),
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true, // 최초 진입 시 로딩 상태를 true로 시작합니다.
     val errorMessage: String? = null,
-    val refreshStatus: GradeRefreshStatus = GradeRefreshStatus.HIDDEN,
-    val refreshMessage: String = "",
+    val refreshStatus: GradeRefreshStatus = GradeRefreshStatus.LOADING, // 초기 상태부터 탑바 로딩을 활성화합니다.
+    val refreshMessage: String = "성적 학기 정보를 확인하는 중",
     val refreshCurrentStep: Int? = null,
     val refreshTotalStep: Int? = null,
     val loginRequired: Boolean = false
@@ -59,28 +59,21 @@ class GradeViewModel @Inject constructor(
 ) : ViewModel() {
     private companion object {
         const val REFRESH_SUCCESS_DURATION_MILLIS = 1_000L
-
-        // 앱 프로세스에서 성적 상세 자동 갱신 팝업을 이미 보여줬는지 기억합니다.
-        var hasShownAutoRefreshPopupInProcess = false
     }
 
     private val _uiState = MutableStateFlow(GradeUiState())
     val uiState = _uiState.asStateFlow()
     private var currentGradeData: GradeData = GradeData()
     private var isGradeRefreshing = false
-    private var showRefreshPopup = true
 
     init {
-        val showPopup = !hasShownAutoRefreshPopupInProcess
-        hasShownAutoRefreshPopupInProcess = true
-        loadGradeOverview(showPopup = showPopup)
+        loadGradeOverview()
     }
 
     // 성적 개요와 학기별 상세 성적을 불러옵니다.
-    fun loadGradeOverview(showPopup: Boolean = true) {
+    fun loadGradeOverview() {
         if (isGradeRefreshing) return
         isGradeRefreshing = true
-        showRefreshPopup = showPopup
 
         viewModelScope.launch {
             try {
@@ -94,34 +87,42 @@ class GradeViewModel @Inject constructor(
                 val isFirstSemesterGradeLoad = cachedData?.grades.isNullOrEmpty()
                 cachedData?.let { gradeData ->
                     updateGradeState(gradeData)
-                }
-
-            lmsAuthRepository.ensureActiveSession()
-                .onFailure { throwable ->
-                    _uiState.update {
-                        it.copy(loginRequired = throwable.isLmsLoginRequired())
+                    // 캐시된 성적 데이터가 유효하면 화면 로딩 상태를 먼저 해제합니다.
+                    if (gradeData.grades.isNotEmpty()) {
+                        _uiState.update { it.copy(isLoading = false) }
                     }
-                    updateRefreshError(throwable.toUserFriendlyMessage())
-                    hideRefreshPopupAfterDelay()
-                    return@launch
                 }
 
-            gradeRepository.refreshGradeOverview()
-                .onSuccess { overviewData ->
-                    updateAndSaveGradeData(
-                        overviewData.copy(grades = currentGradeData.grades)
-                    )
-                    refreshAllSemesterGrades(
-                        semesters = overviewData.semesters,
-                        showEverySemesterProgress = isFirstSemesterGradeLoad
-                    )
-                }
-                .onFailure { throwable ->
-                    updateRefreshError(throwable.toUserFriendlyMessage())
-                    hideRefreshPopupAfterDelay()
-                }
+                lmsAuthRepository.ensureActiveSession()
+                    .onFailure { throwable ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                loginRequired = throwable.isLmsLoginRequired()
+                            )
+                        }
+                        updateRefreshError(throwable.toUserFriendlyMessage())
+                        hideRefreshPopupAfterDelay()
+                        return@launch
+                    }
+
+                // 1단계: 학기 목록만 먼저 단독 조회하여 첫 대기 시간을 최소화합니다.
+                gradeRepository.getSemesters()
+                    .onSuccess { semesters ->
+                        // 2단계: 학기별 상세 성적과 성적 요약표(평점/석차)를 동시에 병렬로 조회합니다.
+                        refreshAllSemesterGradesAndSummary(
+                            semesters = semesters,
+                            showEverySemesterProgress = isFirstSemesterGradeLoad
+                        )
+                    }
+                    .onFailure { throwable ->
+                        _uiState.update { it.copy(isLoading = false) }
+                        updateRefreshError(throwable.toUserFriendlyMessage())
+                        hideRefreshPopupAfterDelay()
+                    }
             } finally {
                 isGradeRefreshing = false
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -135,32 +136,50 @@ class GradeViewModel @Inject constructor(
         _uiState.update { it.copy(loginRequired = false) }
     }
 
-    // 전체 학기의 상세 성적 요청을 동시에 보내고 결과를 한 번에 반영합니다.
-    private suspend fun refreshAllSemesterGrades(
+    // 전체 학기의 상세 성적과 성적 요약표를 동시에 병렬로 요청하고 마지막에 한 번에 매핑합니다.
+    private suspend fun refreshAllSemesterGradesAndSummary(
         semesters: List<GradeSemester>,
         showEverySemesterProgress: Boolean
     ) {
         if (semesters.isEmpty()) {
+            _uiState.update { it.copy(isLoading = false) }
             updateRefreshSuccess(message = "성적 정보를 불러왔어요")
             hideRefreshPopupAfterDelay()
             return
         }
 
+        val totalStep = semesters.size
+        val completedCount = java.util.concurrent.atomic.AtomicInteger(0)
+
         updateRefreshLoading(
             message = "모든 학기 성적 정보를 불러오는 중",
-            currentStep = null,
-            totalStep = null
+            currentStep = 0,
+            totalStep = totalStep
         )
 
-        val semesterResults = coroutineScope {
-            semesters.map { semester ->
+        val (summariesResult, semesterResults) = coroutineScope {
+            // 성적 요약표(평점, 석차) 조회를 학기별 상세 성적들과 함께 비동기 병렬로 실행합니다.
+            val summariesDeferred = async { gradeRepository.getGradeSummaries() }
+
+            // 각 학기별 상세 성적 조회를 비동기 병렬로 실행합니다.
+            val semesterDeferreds = semesters.map { semester ->
                 async {
-                    semester to gradeRepository.refreshSemesterGrade(
+                    val result = gradeRepository.refreshSemesterGrade(
                         year = semester.year,
                         semester = Semester.valueOf(semester.semesterName)
                     )
+                    val currentStep = completedCount.incrementAndGet()
+                    // 각 학기 성적 조회가 끝날 때마다 탑바 프로그레스바 진행 단계를 갱신합니다.
+                    updateRefreshLoading(
+                        message = "${semester.year}년 ${Semester.valueOf(semester.semesterName).nameKor} 성적 확인 중",
+                        currentStep = currentStep,
+                        totalStep = totalStep
+                    )
+                    semester to result
                 }
-            }.awaitAll()
+            }
+
+            summariesDeferred.await() to semesterDeferreds.awaitAll()
         }
 
         val refreshedGrades = semesterResults.mapNotNull { (semester, result) ->
@@ -169,15 +188,22 @@ class GradeViewModel @Inject constructor(
             }
         }.toMap()
 
-        if (refreshedGrades.isNotEmpty()) {
-            updateAndSaveGradeData(
-                currentGradeData.copy(grades = currentGradeData.grades + refreshedGrades)
-            )
-        }
+        val summaries = summariesResult.getOrDefault(currentGradeData.summaries)
+
+        // 모든 학기 성적과 요약표 데이터를 하나로 합쳐서 한 번에 화면과 캐시에 반영합니다.
+        val updatedGradeData = currentGradeData.copy(
+            semesters = semesters,
+            summaries = summaries,
+            grades = currentGradeData.grades + refreshedGrades
+        )
+        updateAndSaveGradeData(updatedGradeData)
+
+        _uiState.update { it.copy(isLoading = false) }
 
         val failure = semesterResults.firstNotNullOfOrNull { (_, result) ->
             result.exceptionOrNull()
-        }
+        } ?: summariesResult.exceptionOrNull()
+
         if (failure != null) {
             updateRefreshError(failure.message)
             hideRefreshPopupAfterDelay()
@@ -204,14 +230,12 @@ class GradeViewModel @Inject constructor(
         }
     }
 
-    // 성적 갱신 로딩 팝업 상태를 갱신합니다.
+    // 성적 갱신 로딩 탑바 상태를 갱신합니다.
     private fun updateRefreshLoading(
         message: String,
         currentStep: Int?,
         totalStep: Int?
     ) {
-        if (!showRefreshPopup) return
-
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.LOADING,
@@ -223,10 +247,8 @@ class GradeViewModel @Inject constructor(
         }
     }
 
-    // 성적 갱신 성공 팝업 상태를 갱신합니다.
+    // 성적 갱신 성공 탑바 상태를 갱신합니다.
     private fun updateRefreshSuccess(message: String) {
-        if (!showRefreshPopup) return
-
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.SUCCESS,
@@ -238,10 +260,8 @@ class GradeViewModel @Inject constructor(
         }
     }
 
-    // 성적 갱신 실패 팝업 상태를 갱신합니다.
+    // 성적 갱신 실패 상태를 갱신합니다.
     private fun updateRefreshError(message: String?) {
-        if (!showRefreshPopup) return
-
         _uiState.update {
             it.copy(
                 refreshStatus = GradeRefreshStatus.ERROR,
@@ -252,10 +272,8 @@ class GradeViewModel @Inject constructor(
         }
     }
 
-    // 성공 팝업을 잠시 표시한 뒤 숨깁니다.
+    // 성공 및 실패 상태를 잠시 표시한 뒤 숨깁니다.
     private suspend fun hideRefreshPopupAfterDelay() {
-        if (!showRefreshPopup) return
-
         delay(REFRESH_SUCCESS_DURATION_MILLIS)
         _uiState.update {
             if (it.refreshStatus == GradeRefreshStatus.SUCCESS || it.refreshStatus == GradeRefreshStatus.ERROR) {

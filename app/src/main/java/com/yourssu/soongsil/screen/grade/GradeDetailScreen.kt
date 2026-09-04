@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -142,21 +143,34 @@ private fun GradeDetailContent(
                 }
             }
 
-            PullToRefreshBox(
-                isRefreshing = isPullRefreshing,
-                onRefresh = onRefresh,
-                state = pullToRefreshState,
-                indicator = {
-                    if (!isPullRefreshing) {
-                        PullToRefreshDefaults.Indicator(
-                            state = pullToRefreshState,
-                            isRefreshing = false,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            ) {
+            // 학기 데이터가 전혀 없는 최초 로딩 시 화면 중앙에 로딩 인디케이터를 표시합니다.
+            if (uiState.isLoading && uiState.semesters.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                PullToRefreshBox(
+                    isRefreshing = isPullRefreshing,
+                    onRefresh = onRefresh,
+                    state = pullToRefreshState,
+                    indicator = {
+                        if (!isPullRefreshing) {
+                            PullToRefreshDefaults.Indicator(
+                                state = pullToRefreshState,
+                                isRefreshing = false,
+                                modifier = Modifier.align(Alignment.TopCenter)
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -212,6 +226,7 @@ private fun GradeDetailContent(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -313,3 +328,25 @@ private fun GradeDetailScreenErrorPreview() {
         }
     }
 }
+
+// 최초 진입 시 데이터가 없어 중앙 로딩 인디케이터와 탑바 로딩바가 함께 노출되는 화면 미리보기입니다.
+@Preview(name = "성적 화면 (최초 로딩 중) - Light", showBackground = true)
+@Preview(name = "성적 화면 (최초 로딩 중) - Dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun GradeDetailScreenInitialLoadingPreview() {
+    SoongsilLifeAndroidTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            GradeDetailContent(
+                uiState = GradeUiState(
+                    semesters = emptyList(),
+                    isLoading = true,
+                    refreshStatus = GradeRefreshStatus.LOADING,
+                    refreshMessage = "2024년 1학기 성적 확인 중",
+                    refreshCurrentStep = 1,
+                    refreshTotalStep = 4
+                )
+            )
+        }
+    }
+}
+
