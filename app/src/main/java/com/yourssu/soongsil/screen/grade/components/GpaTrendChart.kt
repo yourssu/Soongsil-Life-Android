@@ -230,7 +230,7 @@ fun GpaTrendChart(
 private val GpaPoint.shortLabel: String
     get() {
         val s = semester
-        val match = Regex("""(\d{4})년?\s*([12])학기""").find(s)
+        val match = Regex("""(\d{4})년?\s*(여름|겨울|[12])학기""").find(s)
         if (match != null) {
             val sem = match.groupValues[2]
             val yr = match.groupValues[1].takeLast(2)
